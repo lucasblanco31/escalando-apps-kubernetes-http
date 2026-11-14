@@ -1,0 +1,28 @@
+# Cluster de la demo · us-east-1 · EKS Auto Mode
+# eksctl create cluster -f demo/cluster.yaml
+#
+# Auto Mode opera nodos (Karpenter), balanceadores y volúmenes EBS: no se instala
+# Karpenter, AWS Load Balancer Controller ni EBS CSI. Gateway API se habilita después
+# con update-cluster-config (paso 2 de ../aws-plan.md).
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: keda-http
+  region: us-east-1
+  version: "1.36" # KEDA 2.21 declara soporte de 1.34 a 1.36 (https://keda.sh/docs/2.21/operate/cluster/)
+  tags:
+    proyecto: keda-http-demo
+    ambiente: demo
+
+vpc:
+  cidr: 10.2.0.0/16
+  nat:
+    gateway: Single # una sola NAT: alcanza para una demo de un día
+  clusterEndpoints:
+    publicAccess: true
+    privateAccess: true
+  publicAccessCIDRs: ["<TU_IP_PUBLICA>/32"] # la API de EKS solo desde tu IP
+
+autoModeConfig:
+  enabled: true
+  nodePools: ["system"] # la API exige al menos uno; la app va al NodePool demo-spot (aws/nodepool-demo-spot.yaml)

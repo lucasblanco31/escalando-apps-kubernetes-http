@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="es">
+	<head>
+		<meta charset="utf-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+		/>
+
+		<title>Escalando apps en Kubernetes en base a requests HTTP/s — Lucas Blanco</title>
+
+		<link rel="stylesheet" href="dist/reset.css" />
+		<link rel="stylesheet" href="dist/reveal.css" />
+		<link rel="stylesheet" href="dist/theme/lucas.css" />
+
+		<!-- Theme used for syntax highlighted code -->
+		<link rel="stylesheet" href="dist/plugin/highlight/monokai.css" />
+
+		<style>
+			/* Propio de esta charla: bloques de YAML cortos */
+			.reveal pre.yaml {
+				font-size: 0.42em;
+				width: 100%;
+				margin: 0.4em 0 0;
+				box-shadow: none;
+				background: var(--lb-surface);
+				border: 1px solid var(--lb-line);
+				border-radius: 10px;
+			}
+			.reveal pre.yaml code {
+				max-height: none;
+				padding: 0.8em 1em;
+				line-height: 1.35;
+				background: var(--lb-surface);
+			}
+			/* pods y nodos en los diagramas */
+			.reveal svg.arch .pod {
+				fill: var(--lb-blue-dim);
+				stroke: var(--lb-blue);
+				stroke-width: 1.5;
+			}
+			.reveal svg.arch .pod-new {
+				fill: var(--lb-green-dim);
+				stroke: var(--lb-green);
+				stroke-width: 1.5;
+			}
+			.reveal svg.arch .pod-gone {
+				fill: none;
+				stroke: var(--lb-amber);
+				stroke-width: 1.5;
+				stroke-dasharray: 5 5;
+				opacity: 0.7;
+			}
+			.reveal svg.arch .lbl-big {
+				font-size: 30px;
+				font-weight: 600;
+			}
+			.reveal .formula {
+				font-family: var(--lb-mono);
+				font-size: 0.62em;
+				text-align: center;
+				background: var(--lb-surface);
+				border: 1px solid var(--lb-line);
+				border-radius: 10px;
+				padding: 0.6em 0.8em;
+				margin-top: 0.5em;
+			}
+			.reveal .planb {
+				width: 100%;
+				max-height: 11em;
+				object-fit: contain;
+				border: 1px solid var(--lb-line);
+				border-radius: 10px;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+				<!-- ============ 1. PORTADA ============ -->
+				<section class="title-slide">
+					<div class="eyebrow">// AWS Student Community Day · UTN FRC, Córdoba · 14 de noviembre de 2026</div>
+					<h1 style="font-size: 1.9em">Escalando apps en Kubernetes<br />en base a requests HTTP/s</h1>
+					<p class="muted" style="font-size: 0.7em; margin-top: 0.4em; max-width: 62%">
+						De 0 a N pods con KEDA,<br />
+						Gateway API y EKS Auto Mode
+					</p>
+					<p class="tagline">
+						<strong>Lucas Blanco</strong> — DevOps &amp; Cloud ·
+						<span class="site">lucasdevops.cloud</span>
+					</p>
+					<img class="mascot-corner" src="assets/mascot.png" alt="" />
+					<aside class="notes">
+						Bienvenida (30 s). Presentarse en una frase; la slide de quién soy
+						viene después. Bloque de apertura: minutos 0 a 3.
+					</aside>
+				</section>
+
+				<!-- ============ 2. QUIÉN SOY ============ -->
+				<section>
+					<h2>¿Quién soy?</h2>
+					<div style="display: flex; gap: 1.2em; align-items: center; margin-top: 0.5em">
+						<div style="display: flex; flex-direction: column; align-items: center; gap: 0.45em; flex-shrink: 0">
+							<img
+								src="assets/avatar.png"
+								alt="Lucas Blanco"
+								style="width: 4.5em; border-radius: 24px"
+							/>
+							<div style="display: flex; gap: 0.28em; align-items: center">
+								<img src="assets/badges/aws-certified-cloud-practitioner.png" alt="AWS Certified Cloud Practitioner" title="AWS Certified Cloud Practitioner" style="width: 1.15em" />
+								<img src="assets/badges/aws-certified-ai-practitioner.png" alt="AWS Certified AI Practitioner" title="AWS Certified AI Practitioner" style="width: 1.15em" />
+								<img src="assets/badges/aws-certified-solutions-architect-associate.png" alt="AWS Certified Solutions Architect – Associate" title="AWS Certified Solutions Architect – Associate" style="width: 1.15em" />
+								<img src="assets/badges/aws-certified-solutions-architect-professional.png" alt="AWS Certified Solutions Architect – Professional" title="AWS Certified Solutions Architect – Professional" style="width: 1.15em" />
+								<img src="assets/badges/aws-certified-cloudops-engineer-associate.png" alt="AWS Certified CloudOps Engineer – Associate" title="AWS Certified CloudOps Engineer – Associate" style="width: 1.15em" />
+							</div>
+							<img src="assets/badges/aws-community-builder-dark.png" alt="AWS Community Builder" title="AWS Community Builder" style="width: 3.4em" />
+						</div>
+						<div style="font-size: 0.75em">
+							<p><strong>Lucas Blanco</strong> <span class="muted">· DevOps &amp; Cloud</span></p>
+							<ul style="margin-top: 0.3em">
+								<li class="fragment">Tech Leader DevOps: opero plataformas en AWS para varias empresas</li>
+								<li class="fragment">Cofundador de DiploDevOps (UNC, Argentina)</li>
+								<li class="fragment">AWS Community Builder</li>
+								<li class="fragment">Hago mi propia cerveza artesanal 🍻</li>
+							</ul>
+						</div>
+					</div>
+					<aside class="notes">
+						Máximo 1 minuto. Credibilidad, no biografía. No nombrar empresas ni
+						clientes.
+					</aside>
+				</section>
+
+				<!-- ============ 3. QUÉ VAMOS A VER ============ -->
+				<section>
+					<h2>Qué vamos a ver hoy</h2>
+					<div class="ct-objective fragment" style="margin-top: 0.6em">
+						<span>Cuando termine, vas a saber:</span>
+						por qué una app <strong>escala</strong>, por qué conviene escalarla con
+						<strong>métricas de negocio</strong> y no de infraestructura, y cómo hacer
+						que <strong>se apague sola</strong> cuando nadie la usa.
+					</div>
+					<div class="ct-cards fragment" style="margin-top: 0.6em">
+						<div class="ct-card">
+							<div class="num">1</div>
+							<div class="ct-title">Lo mínimo de Kubernetes</div>
+							<p class="muted small">Pods, Services y cómo entra el tráfico.</p>
+						</div>
+						<div class="ct-card">
+							<div class="num">2</div>
+							<div class="ct-title">Escalar por requests</div>
+							<p class="muted small">Por qué la CPU no alcanza y qué hace KEDA.</p>
+						</div>
+						<div class="ct-card win">
+							<div class="num">3</div>
+							<div class="ct-title">Demo en vivo</div>
+							<p class="muted small">Con tu celular. Spoiler: vas a votar.</p>
+						</div>
+					</div>
+					<aside class="notes">
+						1 minuto. No revelar todavía de qué es la votación: la pregunta
+						aparece recién en la demo. Puente: "antes de escalar algo, ¿qué es
+						lo que escala?"
+					</aside>
+				</section>
+
+				<!-- ============ 4. SEPARADOR: INTRODUCCIÓN ============ -->
+				<section class="title-slide">
+					<div class="eyebrow">// introducción</div>
+					<h1 class="accented" style="font-size: 1.9em">
+						Lo mínimo de<br />Kubernetes
+					</h1>
+					<aside class="notes">
+						Minuto 3. Bloque de 5 minutos. Si la sala ya usa Kubernetes, pasar
+						la slide 5 en 30 segundos.
+					</aside>
+				</section>
+
+				<!-- ============ 5. POD, DEPLOYMENT, SERVICE ============ -->
+				<section>
+					<h2>Pod, Deployment y Service</h2>
+					<svg class="arch" viewBox="0 0 960 330" style="margin-top: 0.2em">
+						<!-- f1: un pod -->
+						<g class="fragment" data-fragment-index="1">
+							<rect class="pod" x="430" y="40" width="140" height="70" rx="10" />
+							<text class="lbl" x="482" y="72">pod</text>
+							<text class="lbl-sm" x="452" y="94">tu contenedor</text>
+							<text class="lbl-sm" x="590" y="70">Pod = el contenedor corriendo.</text>
+							<text class="lbl-sm" x="590" y="90">Si se muere, no vuelve solo.</text>
+						</g>
+						<!-- f2: deployment con 3 copias -->
+						<g class="fragment" data-fragment-index="2">
+							<rect class="zone" x="300" y="140" width="400" height="150" rx="12" />
+							<text class="lbl-zone" x="316" y="162">DEPLOYMENT · replicas: 3</text>
+							<rect class="pod" x="320" y="180" width="110" height="80" rx="10" />
+							<text class="lbl" x="355" y="226">pod</text>
+							<rect class="pod" x="445" y="180" width="110" height="80" rx="10" />
+							<text class="lbl" x="480" y="226">pod</text>
+							<rect class="pod" x="570" y="180" width="110" height="80" rx="10" />
+							<text class="lbl" x="605" y="226">pod</text>
+							<text class="lbl-sm" x="720" y="210">Deployment = "quiero N copias".</text>
+							<text class="lbl-sm" x="720" y="230">Si una muere, crea otra.</text>
+						</g>
+						<!-- f3: service -->
+						<g class="fragment" data-fragment-index="3">
+							<rect class="box box-green" x="40" y="185" width="170" height="70" rx="8" />
+							<text class="lbl" x="66" y="215">Service</text>
+							<text class="lbl-sm" x="66" y="237">nombre fijo</text>
+							<line class="wire" x1="210" y1="220" x2="320" y2="220" />
+							<path class="wire" d="M 210,220 L 290,220 L 290,275 L 500,275 L 500,260" />
+							<path class="wire" d="M 290,275 L 625,275 L 625,260" />
+							<circle class="req" r="6">
+								<animateMotion dur="2.4s" repeatCount="indefinite" path="M 210,220 L 320,220" />
+							</circle>
+							<circle class="req" r="6">
+								<animateMotion dur="2.4s" begin="0.8s" repeatCount="indefinite" path="M 210,220 L 290,220 L 290,275 L 500,275 L 500,260" />
+							</circle>
+							<circle class="req" r="6">
+								<animateMotion dur="2.4s" begin="1.6s" repeatCount="indefinite" path="M 210,220 L 290,220 L 290,275 L 625,275 L 625,260" />
+							</circle>
+							<text class="lbl-sm" x="40" y="285">reparte entre las copias</text>
+						</g>
+					</svg>
+					<p class="small muted fragment" data-fragment-index="4" style="margin-top: 0.2em">
+						Escalar = cambiar ese <span class="mono">replicas: 3</span>. La pregunta de hoy es <strong>quién</strong> lo cambia y <strong>mirando qué</strong>.
+					</p>
+					<aside class="notes">
+						2 minutos. Tres piezas, una por clic. Contenedor → Pod → Deployment
+						(cuántas copias) → Service (un nombre fijo que reparte entre las
+						copias). Fuente: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+						y https://kubernetes.io/docs/concepts/services-networking/service/
+					</aside>
+				</section>
+
+				<!-- ============ 6. CÓMO ENTRA EL TRÁFICO: GATEWAY API ============ -->
+				<section>
+					<h2>Cómo entra el tráfico: Gateway API</h2>
+					<svg class="arch" viewBox="0 0 960 250" style="margin-top: 0.2em">
+						<g class="fragment" data-fragment-index="1">
+							<image class="icon-white" href="assets/aws/users.png" x="30" y="90" width="60" height="60" />
+							<text class="lbl-sm" x="22" y="175">internet</text>
+							<rect class="box" x="150" y="70" width="210" height="100" rx="8" />
+							<image href="assets/aws/alb.png" x="166" y="86" width="40" height="40" />
+							<text class="lbl" x="216" y="104">Gateway</text>
+							<text class="lbl-sm" x="216" y="124">la puerta</text>
+							<text class="lbl-sm" x="166" y="155">en AWS: un ALB</text>
+							<line class="wire wire-hot" x1="90" y1="120" x2="150" y2="120" />
+						</g>
+						<g class="fragment" data-fragment-index="2">
+							<rect class="box box-amber" x="420" y="70" width="230" height="100" rx="8" />
+							<text class="lbl" x="436" y="100">HTTPRoute</text>
+							<text class="lbl-sm" x="436" y="122">"si viene a este dominio,</text>
+							<text class="lbl-sm" x="436" y="140">mándalo a este Service"</text>
+							<line class="wire wire-hot" x1="360" y1="120" x2="420" y2="120" />
+						</g>
+						<g class="fragment" data-fragment-index="3">
+							<rect class="box box-green" x="710" y="85" width="110" height="70" rx="8" />
+							<text class="lbl" x="728" y="125">Service</text>
+							<rect class="pod" x="860" y="50" width="70" height="40" rx="8" />
+							<rect class="pod" x="860" y="100" width="70" height="40" rx="8" />
+							<rect class="pod" x="860" y="150" width="70" height="40" rx="8" />
+							<line class="wire wire-hot" x1="650" y1="120" x2="710" y2="120" />
+							<line class="wire" x1="820" y1="120" x2="860" y2="70" />
+							<line class="wire" x1="820" y1="120" x2="860" y2="120" />
+							<line class="wire" x1="820" y1="120" x2="860" y2="170" />
+							<circle class="req" r="6">
+								<animateMotion dur="2.8s" repeatCount="indefinite" path="M 90,120 L 820,120 L 860,70" />
+							</circle>
+							<circle class="req" r="6">
+								<animateMotion dur="2.8s" begin="0.9s" repeatCount="indefinite" path="M 90,120 L 820,120 L 860,120" />
+							</circle>
+							<circle class="req" r="6">
+								<animateMotion dur="2.8s" begin="1.8s" repeatCount="indefinite" path="M 90,120 L 820,120 L 860,170" />
+							</circle>
+						</g>
+					</svg>
+					<p class="small muted fragment" data-fragment-index="4" style="margin-top: 0.3em">
+						Dos YAML: uno para la puerta y uno para cada regla. La API estándar de Kubernetes para esto.
+					</p>
+					<aside class="notes">
+						1,5 minutos. No comparar con Ingress (decisión de la charla). Gateway
+						= dónde escucha (puerto, TLS); HTTPRoute = reglas por dominio y path.
+						Fuente: https://gateway-api.sigs.k8s.io/
+					</aside>
+				</section>
+
+				<!-- ============ 7. EKS AUTO MODE CREA EL ALB ============ -->
+				<section class="proposals">
+					<h2>Novedad: EKS Auto Mode crea el ALB solo</h2>
+					<div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 0.8em; margin-top: 0.4em">
+						<div>
+							<div class="ct-card tentative fragment">
+								<div class="num">Antes</div>
+								<div class="ct-title">Instalar y mantener un controlador</div>
+								<ul>
+									<li>AWS Load Balancer Controller por Helm</li>
+									<li>Rol de IAM y CRDs a mano</li>
+									<li>Actualizarlo con cada versión</li>
+								</ul>
+							</div>
+							<div class="ct-card win fragment" style="margin-top: 0.5em">
+								<div class="num">Desde octubre de 2026</div>
+								<div class="ct-title">Lo opera AWS dentro de Auto Mode</div>
+								<ul>
+									<li>Aplicas <span class="mono">Gateway</span> y <span class="mono">HTTPRoute</span></li>
+									<li>AWS crea el ALB y lo borra al borrar el Gateway</li>
+									<li>Pagas solo el balanceador</li>
+								</ul>
+							</div>
+						</div>
+						<pre class="yaml fragment"><code class="language-yaml" data-trim>
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata: { name: eks-auto-alb }
+spec:
+  controllerName: eks.amazonaws.com/gateway-alb
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: { name: aura-gateway }
+spec:
+  gatewayClassName: eks-auto-alb
+  listeners:
+    - { name: https, protocol: HTTPS, port: 443 }
+						</code></pre>
+					</div>
+					<aside class="notes">
+						1,5 minutos. Anuncio del 2026-10-28: "Amazon EKS Auto Mode now
+						supports Kubernetes Gateway API"
+						(https://aws.amazon.com/about-aws/whats-new/2026/10/amazon-eks-auto-mode-kubernetes-gateway-api/).
+						ALB para rutas L7 (HTTPRoute, GRPCRoute) y NLB para L4 (TCPRoute,
+						UDPRoute) según el controllerName de la GatewayClass; se habilita con
+						update-cluster-config (elasticLoadBalancing + gatewayApi.crds.managed);
+						"Standard charges apply for the AWS load balancing resources
+						provisioned"; al borrar los recursos Auto Mode borra el balanceador
+						(https://docs.aws.amazon.com/eks/latest/userguide/auto-configure-gateway-api.html).
+						Es lo que usa la demo. El YAML real tiene además el certificado de
+						ACM. Puente: "La app ya tiene puerta. ¿Cuántos pods ponemos detrás?"
+					</aside>
+				</section>
+
+				<!-- ============ 8. SEPARADOR: EL PROBLEMA ============ -->
+				<section class="title-slide">
+					<div class="eyebrow">// el problema</div>
+					<h1 class="accented" style="font-size: 1.9em">
+						¿Cuántos pods<br />necesito?
+					</h1>
+					<aside class="notes">
+						Minuto 8. Bloque de 5 minutos.
+					</aside>
+				</section>
+
+				<!-- ============ 9. POCOS O MUCHOS ============ -->
+				<section class="proposals">
+					<h2>Pocos pods o muchos pods: los dos salen mal</h2>
+					<div class="ct-cards" style="grid-template-columns: 1fr 1fr; margin-top: 0.5em">
+						<div class="ct-card tentative fragment">
+							<div class="num">Pocos</div>
+							<div class="ct-title">Llega el pico y la app se cae 😵</div>
+							<ul>
+								<li>Respuestas lentas, errores 502/503</li>
+								<li>El pico dura minutos; el enojo, más</li>
+							</ul>
+						</div>
+						<div class="ct-card tentative fragment">
+							<div class="num">Muchos</div>
+							<div class="ct-title">Pagas pods que no hacen nada 😴</div>
+							<ul>
+								<li>Toda la noche prendidos "por las dudas"</li>
+								<li>Dimensionados para el peor día del año</li>
+							</ul>
+						</div>
+					</div>
+					<div class="ct-objective green fragment" style="margin-top: 0.6em">
+						<span>Lo que queremos</span>
+						Los pods justos, en el momento justo, sin que nadie tenga que mirar.
+					</div>
+					<aside class="notes">
+						1 minuto. Ejemplo cercano: la inscripción a materias, la venta de
+						entradas, todos votando a la vez. Preguntar a mano alzada quién vio
+						caerse un sistema de inscripción (solo en voz, no en pantalla).
+					</aside>
+				</section>
+
+				<!-- ============ 10. VERTICAL VS HORIZONTAL ============ -->
+				<section class="proposals">
+					<h2>Dos formas de escalar</h2>
+					<div class="ct-cards" style="grid-template-columns: 1fr 1fr; margin-top: 0.5em">
+						<div class="ct-card fragment">
+							<div class="num">Vertical</div>
+							<div class="ct-title">Un pod más grande</div>
+							<ul>
+								<li>Más CPU y memoria al mismo pod</li>
+								<li>Tiene techo: el tamaño del nodo</li>
+								<li>Suele implicar reiniciar el pod</li>
+							</ul>
+						</div>
+						<div class="ct-card win fragment">
+							<div class="num">Horizontal</div>
+							<div class="ct-title">Más pods iguales</div>
+							<ul>
+								<li>Copias detrás del mismo Service</li>
+								<li>Sube y baja sin cortar el servicio</li>
+								<li>El camino normal para apps web</li>
+							</ul>
+						</div>
+					</div>
+					<aside class="notes">
+						1 minuto. Hoy hablamos solo de horizontal. Vertical existe (VPA) pero
+						queda fuera.
+					</aside>
+				</section>
+
+				<!-- ============ 11. HPA POR CPU ============ -->
+				<section>
+					<h2>El clásico: HPA mirando la CPU</h2>
+					<ul style="font-size: 0.62em; margin-top: 0.5em">
+						<li class="fragment">El <strong>Horizontal Pod Autoscaler</strong> viene con Kubernetes</li>
+						<li class="fragment">Le dices "quiero la CPU al 50 %" y él ajusta las réplicas</li>
+					</ul>
+					<div class="formula fragment">
+						réplicas = ⌈ réplicas_actuales × <span class="amber">métrica_actual</span> / <span class="green">métrica_objetivo</span> ⌉
+					</div>
+					<p class="fragment" style="font-size: 0.6em; margin-top: 0.6em">
+						Ejemplo: 2 pods al <em class="amber">90 %</em> con objetivo <em class="green">50 %</em>
+						→ ⌈2 × 90 / 50⌉ = ⌈3,6⌉ = <strong>4 pods</strong>
+					</p>
+					<aside class="notes">
+						1,5 minutos. Fórmula textual de la documentación:
+						desiredReplicas = ceil[currentReplicas * (currentMetricValue /
+						desiredMetricValue)]
+						(https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#algorithm-details).
+						Hacer la cuenta en voz alta.
+					</aside>
+				</section>
+
+				<!-- ============ 12. DÓNDE FALLA LA CPU ============ -->
+				<section class="proposals">
+					<h2>Dónde se queda corta la CPU</h2>
+					<div class="ct-cards" style="grid-template-columns: 1fr 1fr; margin-top: 0.5em">
+						<div class="ct-card tentative fragment">
+							<div class="num">Llega tarde</div>
+							<div class="ct-title">La app espera, no calcula</div>
+							<ul>
+								<li>Espera a la base o a otra API con la CPU baja</li>
+								<li>Los pedidos se acumulan y el HPA no se entera</li>
+							</ul>
+						</div>
+						<div class="ct-card tentative fragment">
+							<div class="num">No baja de 1</div>
+							<div class="ct-title">Siempre hay un pod prendido</div>
+							<ul>
+								<li>El mínimo del HPA es 1 réplica</li>
+								<li>Sin tráfico igual pagas ese pod (y su nodo)</li>
+							</ul>
+						</div>
+					</div>
+					<div class="ct-objective fragment" style="margin-top: 0.6em">
+						<span>La idea</span>
+						Escalar por <strong>métricas de negocio</strong>, no de infraestructura.
+						La CPU es un síntoma; lo que importa son <strong>los pedidos que llegan por segundo</strong>.
+					</div>
+					<aside class="notes">
+						1,5 minutos. Mensaje central de la charla: métricas de negocio
+						(pedidos, votos, mensajes en cola, usuarios conectados) antes que de
+						infraestructura (CPU, memoria). Ejemplos: un e-commerce escala por
+						carritos o pedidos por minuto; un sistema de inscripción, por alumnos
+						en la cola. minReplicas por defecto es 1; bajar a 0 requiere el
+						feature gate HPAScaleToZero, en alpha
+						(https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/).
+						A VERIFICAR estado en 1.36 (versión del cluster de la demo) antes de afirmarlo en Q&A. Puente: "¿y
+						si escalamos por los pedidos que llegan?"
+					</aside>
+				</section>
+
+				<!-- ============ 13. SEPARADOR: KEDA ============ -->
+				<section class="title-slide">
+					<div class="eyebrow">// escalar por requests</div>
+					<h1 class="accented" style="font-size: 1.9em">
+						Requests por segundo<br />con KEDA
+					</h1>
+					<aside class="notes">
+						Minuto 13. Bloque de 8 minutos, el corazón de la charla.
+					</aside>
+				</section>
+
+				<!-- ============ 14. QUÉ ES KEDA ============ -->
+				<section>
+					<h2>KEDA: escalar por eventos</h2>
+					<div style="display: flex; align-items: center; gap: 1em; margin-top: 0.5em">
+						<img src="assets/logos/keda.png" alt="KEDA" style="width: 3.2em; flex-shrink: 0" />
+						<ul style="font-size: 0.62em; margin: 0">
+							<li class="fragment">Escala por <strong>lo que pasa afuera</strong>: mensajes en una cola, una métrica, un horario… o pedidos HTTP</li>
+							<li class="fragment">De <strong>0 a 1</strong> lo hace KEDA; de <strong>1 a N</strong> se lo pasa al HPA de siempre</li>
+							<li class="fragment">Por eso puede <strong>apagar del todo</strong> una app sin tráfico</li>
+						</ul>
+					</div>
+					<div class="ct-cards fragment" style="margin-top: 0.6em">
+						<div class="ct-card">
+							<div class="num">Cola</div>
+							<p class="muted small">"Hay 500 mensajes en Redis o SQS"</p>
+						</div>
+						<div class="ct-card">
+							<div class="num">Horario</div>
+							<p class="muted small">"De 9 a 18, mínimo 3 pods"</p>
+						</div>
+						<div class="ct-card win">
+							<div class="num">HTTP</div>
+							<p class="muted small">"Llegan 45 pedidos por segundo"</p>
+						</div>
+					</div>
+					<p class="small muted fragment" style="margin-top: 0.5em">
+						Las tres hablan del <strong>negocio</strong> (pedidos, mensajes, horarios), no de la máquina.
+					</p>
+					<aside class="notes">
+						1,5 minutos. KEDA activa y desactiva el Deployment para ir y volver
+						de cero y actúa como servidor de métricas para el HPA
+						(https://keda.sh/docs/latest/concepts/). Proyecto graduado de la
+						CNCF (https://www.cncf.io/projects/keda/). El worker de la demo
+						escala por la cola de Redis: lo mostramos al final.
+					</aside>
+				</section>
+
+				<!-- ============ 15. HTTP ADD-ON: EL INTERCEPTOR ============ -->
+				<section>
+					<h2>KEDA HTTP Add-on: el interceptor</h2>
+					<svg class="arch" viewBox="0 0 960 360" style="margin-top: 0.1em">
+						<!-- f1: camino base, app en 0 -->
+						<g class="fragment" data-fragment-index="1">
+							<image class="icon-white" href="assets/aws/users.png" x="20" y="60" width="54" height="54" />
+							<rect class="box" x="110" y="55" width="150" height="70" rx="8" />
+							<image href="assets/aws/alb.png" x="122" y="70" width="38" height="38" />
+							<text class="lbl" x="168" y="96">ALB</text>
+							<line class="wire wire-hot" x1="74" y1="90" x2="110" y2="90" />
+							<rect class="box box-amber" x="320" y="45" width="230" height="90" rx="8" />
+							<text class="lbl" x="336" y="77">Interceptor</text>
+							<text class="lbl-sm" x="336" y="99">cuenta los pedidos</text>
+							<text class="lbl-sm" x="336" y="117">y los retiene si hay 0 pods</text>
+							<line class="wire wire-hot" x1="260" y1="90" x2="320" y2="90" />
+							<rect class="zone" x="640" y="30" width="300" height="130" rx="12" />
+							<text class="lbl-zone" x="656" y="52">APP · DEPLOYMENT</text>
+							<rect class="pod-gone" x="660" y="70" width="80" height="70" rx="8" />
+							<rect class="pod-gone" x="750" y="70" width="80" height="70" rx="8" />
+							<rect class="pod-gone" x="840" y="70" width="80" height="70" rx="8" />
+							<text class="lbl-big" x="660" y="194" style="fill: var(--lb-amber)">0 pods</text>
+							<circle class="req" r="6">
+								<animateMotion dur="2s" repeatCount="indefinite" path="M 74,90 L 430,90" />
+							</circle>
+						</g>
+						<!-- f2: el interceptor avisa a KEDA -->
+						<g class="fragment" data-fragment-index="2">
+							<rect class="box box-green" x="320" y="230" width="230" height="80" rx="8" />
+							<image href="assets/logos/keda.png" x="334" y="244" width="50" height="50" />
+							<text class="lbl" x="396" y="264">KEDA</text>
+							<text class="lbl-sm" x="396" y="286">calcula réplicas</text>
+							<path class="wire wire-hot" d="M 435,135 L 435,230" />
+							<text class="lbl-sm" x="445" y="190">req/s</text>
+							<path class="wire wire-hot" d="M 550,270 L 890,270 L 890,160" />
+							<text class="lbl-sm" x="600" y="260">"necesito 3 pods"</text>
+							<circle class="req-blue" r="6">
+								<animateMotion dur="2s" repeatCount="indefinite" path="M 435,135 L 435,230" />
+							</circle>
+						</g>
+						<!-- f3: aparecen los pods y el tráfico pasa -->
+						<g class="fragment" data-fragment-index="3">
+							<rect fill="var(--lb-ink)" x="650" y="166" width="140" height="40" />
+							<text class="lbl-big" x="660" y="194" style="fill: var(--lb-green)">3 pods</text>
+							<rect class="pod-new" x="660" y="70" width="80" height="70" rx="8" />
+							<rect class="pod-new" x="750" y="70" width="80" height="70" rx="8" />
+							<rect class="pod-new" x="840" y="70" width="80" height="70" rx="8" />
+							<line class="wire wire-hot" x1="550" y1="90" x2="660" y2="90" />
+							<circle class="req" r="6">
+								<animateMotion dur="2.2s" repeatCount="indefinite" path="M 74,90 L 700,90" />
+							</circle>
+							<circle class="req" r="6">
+								<animateMotion dur="2.2s" begin="0.7s" repeatCount="indefinite" path="M 74,90 L 600,90 L 790,105" />
+							</circle>
+							<circle class="req" r="6">
+								<animateMotion dur="2.2s" begin="1.4s" repeatCount="indefinite" path="M 74,90 L 600,90 L 880,105" />
+							</circle>
+						</g>
+					</svg>
+					<aside class="notes">
+						2,5 minutos. Tres clics: (1) la app está en 0 y el pedido queda
+						esperando en el interceptor; (2) el interceptor le pasa la tasa de
+						pedidos a KEDA, que decide cuántos pods; (3) arrancan los pods y el
+						interceptor libera los pedidos retenidos. Piezas del add-on:
+						operator, interceptor y scaler (https://github.com/kedacore/http-add-on).
+						El add-on está en beta según su README (A VERIFICAR el día de la
+						charla). El HTTPRoute de la demo apunta al interceptor, no a la app.
+					</aside>
+				</section>
+
+				<!-- ============ 16. HTTPSCALEDOBJECT ============ -->
+				<section>
+					<h2>El YAML que lo decide</h2>
+					<div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 0.8em; align-items: start">
+						<pre class="yaml"><code class="language-yaml" data-trim>
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: vote
+spec:
+  hosts: [aura.lucasdevops.cloud]
+  scaleTargetRef:
+    name: vote
+  replicas:
+    min: 0
+    max: 10
+  scalingMetric:
+    requestRate:
+      targetValue: 10   # req/s por pod
+      window: 60s
+  scaledownPeriod: 10
+						</code></pre>
+						<div style="font-size: 0.56em">
+							<p class="fragment"><strong>min 0</strong>: sin tráfico, se apaga</p>
+							<p class="fragment"><strong>max 10</strong>: el techo que protege la factura</p>
+							<p class="fragment"><strong>10 req/s por pod</strong>:</p>
+							<div class="formula fragment" style="font-size: 1em">
+								45 req/s → ⌈45 / 10⌉ = <span class="green">5 pods</span>
+							</div>
+						</div>
+					</div>
+					<aside class="notes">
+						2 minutos. Recorrer el YAML por bloques (los clics resaltan las
+						líneas). Es el HTTPScaledObject de la demo, recortado. Campos según
+						https://github.com/kedacore/http-add-on (docs de HTTPScaledObject en
+						el repo). scaledownPeriod: segundos sin tráfico antes de volver a 0.
+					</aside>
+				</section>
+
+				<!-- ============ 17. PODS Y NODOS ============ -->
+				<section>
+					<h2>Dos niveles: pods y nodos</h2>
+					<svg class="arch" viewBox="0 0 960 300" style="margin-top: 0.2em">
+						<g class="fragment" data-fragment-index="1">
+							<rect class="zone-az" x="40" y="40" width="380" height="200" rx="10" />
+							<image href="assets/aws/ec2.png" x="56" y="52" width="34" height="34" />
+							<text class="lbl-zone" x="100" y="74">NODO 1 · LLENO</text>
+							<rect class="pod" x="60" y="100" width="100" height="56" rx="8" />
+							<rect class="pod" x="175" y="100" width="100" height="56" rx="8" />
+							<rect class="pod" x="290" y="100" width="100" height="56" rx="8" />
+							<rect class="pod" x="60" y="166" width="100" height="56" rx="8" />
+							<rect class="pod" x="175" y="166" width="100" height="56" rx="8" />
+							<rect class="pod" x="290" y="166" width="100" height="56" rx="8" />
+						</g>
+						<g class="fragment" data-fragment-index="2">
+							<rect class="pod-gone" x="470" y="100" width="100" height="56" rx="8" />
+							<rect class="pod-gone" x="470" y="166" width="100" height="56" rx="8" />
+							<text class="lbl-sm" x="448" y="250">Pending: no entran</text>
+						</g>
+						<g class="fragment" data-fragment-index="3">
+							<rect class="zone-az" x="620" y="40" width="300" height="200" rx="10" style="stroke: var(--lb-green)" />
+							<image href="assets/aws/ec2.png" x="636" y="52" width="34" height="34" />
+							<text class="lbl-zone" x="680" y="74">NODO 2 · NUEVO</text>
+							<rect class="pod-new" x="660" y="100" width="100" height="56" rx="8" />
+							<rect class="pod-new" x="660" y="166" width="100" height="56" rx="8" />
+							<path class="wire wire-hot" d="M 570,128 L 660,128" />
+							<path class="wire wire-hot" d="M 570,194 L 660,194" />
+							<text class="lbl-sm" x="40" y="275">EKS Auto Mode ve los pods pendientes y agrega un nodo del tamaño justo · cuando sobra, lo saca</text>
+						</g>
+					</svg>
+					<aside class="notes">
+						1,5 minutos. KEDA decide pods; si no entran, quedan Pending y Auto
+						Mode (Karpenter operado por AWS) crea un nodo; cuando se vacía, lo
+						consolida (https://docs.aws.amazon.com/eks/latest/userguide/automode.html).
+						Medido en el ensayo (2026-11-13): con ~100 req/s, pods Pending a los
+						~24 s y nodo Spot nuevo Ready a los ~46 s; vote llegó a 10 réplicas en
+						~70 s. Al cortar la carga volvió a 0 en ~95 s; el nodo extra no se
+						consolidó en los 8 minutos siguientes (no prometer que "se va al
+						instante").
+					</aside>
+				</section>
+
+				<!-- ============ 18. EL PRECIO DE ESCALAR A 0 ============ -->
+				<section class="proposals">
+					<h2>El precio de escalar a 0: el cold start</h2>
+					<p style="font-size: 0.6em; margin-top: 0.4em">
+						El primer pedido espera lo que tarda en arrancar un pod. 🥶
+					</p>
+					<div class="ct-cards" style="grid-template-columns: 1fr 1fr; margin-top: 0.4em">
+						<div class="ct-card win fragment">
+							<div class="num">Sirve para</div>
+							<div class="ct-title">Tráfico con picos y silencios</div>
+							<ul>
+								<li>Entornos de desarrollo y pruebas</li>
+								<li>APIs internas, herramientas, demos</li>
+								<li>Apps de eventos: inscripciones, votaciones</li>
+							</ul>
+						</div>
+						<div class="ct-card tentative fragment">
+							<div class="num">Ojo con</div>
+							<div class="ct-title">Lo que no puede esperar</div>
+							<ul>
+								<li>La home de un e-commerce</li>
+								<li>Apps que tardan mucho en arrancar</li>
+								<li>Ahí: <span class="mono">min: 1</span> o más, y KEDA escala igual por req/s</li>
+							</ul>
+						</div>
+					</div>
+					<aside class="notes">
+						1 minuto. Cold start medido en el ensayo (2026-11-13): 5,4 s de 0 a 1
+						pod con el nodo ya creado. Si además hace falta un nodo nuevo, sumar
+						unos 45 s. Puente: "basta de
+						diapositivas, vamos a verlo con ustedes".
+					</aside>
+				</section>
+
+				<!-- ============ 19. SEPARADOR: DEMO ============ -->
+				<section class="title-slide">
+					<div class="eyebrow">// demo en vivo</div>
+					<h1 class="accented" style="font-size: 1.8em">
+						¿Quién tiene más aura?
+					</h1>
+					<div style="display: flex; gap: 1.4em; align-items: center; margin-top: 0.6em">
+						<img src="assets/qr-aura.png" alt="QR a aura.lucasdevops.cloud" style="width: 4.2em; border-radius: 10px; background: #fff; padding: 0.15em" />
+						<div>
+							<p class="mono" style="font-size: 0.7em; margin: 0">aura.lucasdevops.cloud</p>
+							<p class="muted" style="font-size: 0.55em; margin-top: 0.3em">Ahora mismo la app está en <strong class="amber">0 pods</strong>. Vota y mira la pantalla.</p>
+						</div>
+					</div>
+					<aside class="notes">
+						Minuto 21. 10 minutos. Guion en demo/README.md. Orden: panel con
+						vote en 0 → QR, la sala vota → primer pod (cold start) → generador
+						de carga desde el panel → réplicas suben (y un nodo, si hace falta)
+						→ cortar la carga → vuelve a 0 → el worker escaló por la cola de
+						Redis → resultado final. Si la red falla, pasar a las dos slides
+						ocultas de plan B y decir que son capturas.
+					</aside>
+				</section>
+
+				<!-- ============ 20. PLAN B: ESCALANDO ============ -->
+				<section data-visibility="hidden">
+					<h2>Plan B · Escalando con carga</h2>
+					<img class="planb" src="assets/demo/01-escalando.png" alt="Captura del panel: réplicas de vote subiendo con los pedidos por segundo" />
+					<p class="small muted" style="margin-top: 0.4em">Captura del ensayo. Los pedidos por segundo suben y las réplicas los siguen.</p>
+					<aside class="notes">
+						Slide oculta: solo si la demo en vivo falla. Captura pendiente del
+						ensayo.
+					</aside>
+				</section>
+
+				<!-- ============ 21. PLAN B: DE VUELTA A 0 ============ -->
+				<section data-visibility="hidden">
+					<h2>Plan B · De vuelta a 0</h2>
+					<img class="planb" src="assets/demo/02-cero.png" alt="Captura del panel: vote vuelve a 0 réplicas sin tráfico" />
+					<p class="small muted" style="margin-top: 0.4em">Captura del ensayo. Sin tráfico, la app vuelve a 0 pods.</p>
+					<aside class="notes">
+						Slide oculta. Captura pendiente.
+					</aside>
+				</section>
+
+				<!-- ============ 22. ANTES DE USARLO EN SERIO ============ -->
+				<section class="proposals">
+					<h2>Antes de usarlo en serio</h2>
+					<div class="ct-cards" style="margin-top: 0.5em">
+						<div class="ct-card fragment">
+							<div class="num">Cold start</div>
+							<div class="ct-title">Mídelo</div>
+							<ul>
+								<li>Imagen chica, arranque rápido</li>
+								<li>Si no se tolera, <span class="mono">min: 1</span></li>
+							</ul>
+						</div>
+						<div class="ct-card fragment">
+							<div class="num">Techo</div>
+							<div class="ct-title">Siempre un <span class="mono">max</span></div>
+							<ul>
+								<li>Un bot no te escala a 500 pods</li>
+								<li>Protege la base y la factura</li>
+							</ul>
+						</div>
+						<div class="ct-card tentative fragment">
+							<div class="num">Una pieza más</div>
+							<div class="ct-title">El interceptor</div>
+							<ul>
+								<li>Todo el tráfico pasa por él</li>
+								<li>Dale réplicas y monitoréalo</li>
+							</ul>
+						</div>
+					</div>
+					<aside class="notes">
+						1,5 minutos. El HTTP Add-on sigue en beta (A VERIFICAR en
+						https://github.com/kedacore/http-add-on el día de la charla); para
+						producción hay alternativas que escalan por req/s leyendo métricas
+						del balanceador o de Prometheus con KEDA, sin interceptor (pero sin nadie
+						que retenga los pedidos mientras la app está en 0).
+					</aside>
+				</section>
+
+				<!-- ============ 23. CÓMO SEGUIR ============ -->
+				<section>
+					<h2>¿Cómo sigo desde acá?</h2>
+					<ul class="done" style="font-size: 0.62em; margin-top: 0.6em">
+						<li class="fragment">
+							<strong>KEDA</strong>: la documentación tiene ejemplos por cada tipo de evento —
+							<span class="mono small">keda.sh</span>
+						</li>
+						<li class="fragment">
+							<strong>Gateway API en EKS Auto Mode</strong>: la guía oficial, corta —
+							<span class="mono small">docs.aws.amazon.com/eks</span>
+						</li>
+						<li class="fragment">
+							<strong>Pruébalo en local</strong> con kind o minikube: KEDA y el add-on se instalan con Helm
+						</li>
+						<li class="fragment">
+							<strong>AWS Skill Builder</strong>: cursos gratuitos de contenedores —
+							<span class="mono small">skillbuilder.aws</span>
+						</li>
+					</ul>
+					<div class="ct-objective amber fragment" style="margin-top: 0.5em">
+						<span>Recordatorio</span>
+						Un cluster EKS cuesta por hora aunque esté vacío. Alarma de presupuesto primero, experimentos después. 😉
+					</div>
+					<aside class="notes">
+						1 minuto. Si se publica el repo de la demo, agregar el link acá.
+						Precio del control plane solo si preguntan:
+						https://aws.amazon.com/eks/pricing/
+					</aside>
+				</section>
+
+				<!-- ============ 24. CIERRE ============ -->
+				<section class="title-slide">
+					<div class="eyebrow">// gracias</div>
+					<h1 class="accented" style="font-size: 1.75em">
+						Los pods justos,<br />en el momento justo
+					</h1>
+					<p class="tagline">
+						¿Preguntas? · <strong>Lucas Blanco</strong> ·
+						<span class="site">lucasdevops.cloud</span>
+					</p>
+					<div style="display: flex; gap: 1.2em; margin-top: 1em">
+						<div style="display: flex; flex-direction: column; align-items: center; gap: 0.3em">
+							<img src="assets/qr-linkedin.png" alt="QR LinkedIn" style="width: 3.6em; border-radius: 10px" />
+							<span class="mono muted" style="font-size: 0.4em; letter-spacing: 0.08em">LINKEDIN</span>
+						</div>
+					</div>
+					<img class="mascot-corner" src="assets/mascot.png" alt="" />
+					<aside class="notes">
+						Minuto 35. Dejar esta slide durante todo el Q&A (10 minutos).
+					</aside>
+				</section>
+			</div>
+		</div>
+
+		<script src="dist/reveal.js"></script>
+		<script src="dist/plugin/notes.js"></script>
+		<script src="dist/plugin/markdown.js"></script>
+		<script src="dist/plugin/highlight.js"></script>
+		<script>
+			Reveal.initialize({
+				hash: true,
+				slideNumber: "c/t",
+				transition: "slide",
+				plugins: [RevealMarkdown, RevealHighlight, RevealNotes],
+			});
+		</script>
+	</body>
+</html>

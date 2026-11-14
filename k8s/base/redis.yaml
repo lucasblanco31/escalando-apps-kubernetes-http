@@ -1,0 +1,42 @@
+# Redis de la demo: la cola de votos entre vote y worker. Imagen oficial, sin persistencia.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: keda-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+      annotations:
+        karpenter.sh/do-not-disrupt: "true"
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine # multi-arch
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: keda-app
+spec:
+  ports:
+    - port: 6379
+  selector:
+    app: redis

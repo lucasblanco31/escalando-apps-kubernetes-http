@@ -1,0 +1,56 @@
+# Postgres de la demo: imagen oficial, una réplica, SIN persistencia (emptyDir).
+# La demo dura una hora; si el Pod se reinicia, los votos se pierden y el worker
+# recrea la tabla. Así no hay volúmenes EBS que limpiar en el teardown.
+# Credenciales de demo (postgres/postgres): solo para este sandbox.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: keda-app
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+      annotations:
+        karpenter.sh/do-not-disrupt: "true" # que la consolidación no mueva la base en plena demo
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine # multi-arch
+          env:
+            - name: POSTGRES_PASSWORD
+              value: postgres
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: keda-app
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: postgres

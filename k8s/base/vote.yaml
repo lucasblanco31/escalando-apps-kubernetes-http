@@ -1,0 +1,55 @@
+# Deployment y Service de la app de votación "¿Quién tiene más aura?".
+# Arranca en 0 réplicas: KEDA la despierta con el primer voto y la sube hasta 10
+# según los requests por segundo (httpScaledObject.yaml).
+
+# ── 1. Deployment ─────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vote
+  namespace: keda-app
+spec:
+  replicas: 0          # Estado inicial de la demo; KEDA toma el control del número de réplicas
+  selector:
+    matchLabels:
+      app: vote
+  template:
+    metadata:
+      labels:
+        app: vote
+    spec:
+      containers:
+        - name: vote
+          image: aura-vote  # el overlay (local o aws) fija el registro y el tag
+          env:
+            - name: OPTION_A
+              value: "Maradona"
+            - name: OPTION_B
+              value: "Messi"
+          ports:
+            - containerPort: 80
+          readinessProbe:      # El interceptor espera a que el Pod esté Ready antes de soltarle los requests retenidos
+            httpGet:
+              path: /healthz
+              port: 80
+            periodSeconds: 2
+          resources:
+            requests:
+              cpu: 250m        # Con 10 réplicas piden 2,5 vCPU: no entran en un nodo de 2 vCPU y Auto Mode agrega otro
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+---
+# ── 2. Service ────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: vote
+  namespace: keda-app
+spec:
+  type: ClusterIP   # El tráfico externo llega vía el interceptor de KEDA → este Service
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: vote

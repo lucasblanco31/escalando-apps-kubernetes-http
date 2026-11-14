@@ -1,0 +1,552 @@
+/**
+ * Tema personal de Lucas Blanco para reveal.js
+ * Paleta tomada de lucasdevops.cloud
+ *   ink      #090d15  (fondo)
+ *   surface  #101828  (cards)
+ *   line     #1c2942  (bordes)
+ *   blue     #4a86e6  (acento primario)
+ *   amber    #e6aa49  (acento secundario / advertencia)
+ *   green    #3ecf8e  (éxito / demo)
+ * Tipos: Bricolage Grotesque (display) + IBM Plex Mono (labels/código),
+ * embebidas para que el deck funcione sin red.
+ */
+
+@font-face {
+	font-family: "Bricolage Grotesque";
+	font-style: normal;
+	font-weight: 400 800;
+	font-display: swap;
+	src: url("../../assets/fonts/bricolage.woff2") format("woff2");
+}
+@font-face {
+	font-family: "IBM Plex Mono";
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url("../../assets/fonts/plexmono-400.woff2") format("woff2");
+}
+@font-face {
+	font-family: "IBM Plex Mono";
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url("../../assets/fonts/plexmono-600.woff2") format("woff2");
+}
+
+:root {
+	--lb-ink: #090d15;
+	--lb-surface: #101828;
+	--lb-line: #1c2942;
+	--lb-blue: #4a86e6;
+	--lb-blue-dim: rgba(74, 134, 230, 0.14);
+	--lb-amber: #e6aa49;
+	--lb-amber-dim: rgba(230, 170, 73, 0.12);
+	--lb-green: #3ecf8e;
+	--lb-green-dim: rgba(62, 207, 142, 0.12);
+	--lb-text: #e9eef7;
+	--lb-muted: #8593a9;
+	--lb-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+	--r-background-color: var(--lb-ink);
+	--r-main-font: "Bricolage Grotesque", system-ui, sans-serif;
+	--r-main-font-size: 38px;
+	--r-main-color: var(--lb-text);
+	--r-heading-font: "Bricolage Grotesque", system-ui, sans-serif;
+	--r-heading-color: #ffffff;
+	--r-heading-line-height: 1.15;
+	--r-heading-letter-spacing: -0.02em;
+	--r-heading-text-transform: none;
+	--r-heading-font-weight: 700;
+	--r-heading1-size: 2.1em;
+	--r-heading2-size: 1.5em;
+	--r-heading3-size: 1.15em;
+	--r-link-color: var(--lb-blue);
+	--r-link-color-hover: #6ea3f0;
+	--r-selection-background-color: var(--lb-amber);
+	--r-selection-color: #090d15;
+}
+
+.reveal-viewport {
+	background: radial-gradient(circle at 22% 12%, #101c30 0%, var(--lb-ink) 60%);
+}
+
+.reveal {
+	font-family: var(--r-main-font);
+	font-size: var(--r-main-font-size);
+	font-weight: 400;
+	color: var(--lb-text);
+}
+
+.reveal .slides {
+	text-align: left;
+}
+
+.reveal .slides section {
+	line-height: 1.3;
+}
+
+.reveal h1,
+.reveal h2,
+.reveal h3,
+.reveal h4 {
+	font-family: var(--r-heading-font);
+	color: var(--r-heading-color);
+	font-weight: 750;
+	letter-spacing: var(--r-heading-letter-spacing);
+	margin: 0 0 0.4em 0;
+}
+
+.reveal h2 {
+	font-size: var(--r-heading2-size);
+}
+
+/* regla de acento bajo los títulos: azul → ámbar */
+.reveal h2::after,
+.reveal h1.accented::after {
+	content: "";
+	display: block;
+	width: 84px;
+	height: 5px;
+	margin-top: 0.35em;
+	border-radius: 4px;
+	background: linear-gradient(90deg, var(--lb-blue), var(--lb-amber));
+}
+
+.reveal a {
+	color: var(--r-link-color);
+	text-decoration: none;
+}
+.reveal a:hover {
+	color: var(--r-link-color-hover);
+}
+
+.reveal strong,
+.reveal b {
+	color: #ffffff;
+}
+
+/* énfasis de datos/métricas (se mantiene el nombre de clase del vocabulario) */
+.reveal em.cyan,
+.reveal em.blue {
+	color: var(--lb-blue);
+	font-style: normal;
+	font-weight: 600;
+}
+.reveal em.amber {
+	color: var(--lb-amber);
+	font-style: normal;
+	font-weight: 600;
+}
+.reveal em.green {
+	color: var(--lb-green);
+	font-style: normal;
+	font-weight: 600;
+}
+
+/* listas */
+.reveal ul {
+	list-style: none;
+	margin-left: 0;
+}
+.reveal ul li {
+	position: relative;
+	padding-left: 1.4em;
+	margin: 0.5em 0;
+}
+.reveal ul li::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 0.55em;
+	width: 0.5em;
+	height: 0.5em;
+	border-radius: 2px;
+	background: var(--lb-blue);
+}
+
+/* ítems logrados: check verde */
+.reveal ul.done li::before {
+	content: "✓";
+	background: transparent;
+	color: var(--lb-green);
+	font-weight: 700;
+	top: 0.05em;
+	width: auto;
+	height: auto;
+	font-size: 0.95em;
+}
+
+/* ítems problema: cruz ámbar */
+.reveal ul.bad li::before {
+	content: "✗";
+	background: transparent;
+	color: var(--lb-amber);
+	font-weight: 700;
+	top: 0.05em;
+	width: auto;
+	height: auto;
+	font-size: 0.95em;
+}
+
+.reveal .muted {
+	color: var(--lb-muted);
+}
+
+.reveal .small {
+	font-size: 0.7em;
+}
+
+.reveal .mono {
+	font-family: var(--lb-mono);
+}
+
+/* ---------- portada / cierre ---------- */
+.reveal .title-slide {
+	text-align: left;
+}
+.reveal .title-slide .eyebrow,
+.reveal .eyebrow {
+	font-family: var(--lb-mono);
+	color: var(--lb-amber);
+	text-transform: uppercase;
+	letter-spacing: 0.18em;
+	font-size: 0.45em;
+	font-weight: 600;
+	margin-bottom: 0.6em;
+}
+.reveal .title-slide h1 {
+	font-size: 2.4em;
+	line-height: 1.05;
+}
+.reveal .title-slide .tagline {
+	color: var(--lb-muted);
+	font-size: 0.6em;
+	margin-top: 0.9em;
+}
+.reveal .title-slide .tagline .site {
+	font-family: var(--lb-mono);
+	font-size: 0.85em;
+	color: var(--lb-blue);
+}
+
+/* mascota flotando en portada/cierre */
+.reveal .mascot-corner {
+	position: absolute;
+	right: -1.2em;
+	bottom: -3.5em;
+	width: 7.5em;
+	filter: drop-shadow(0 12px 40px rgba(74, 134, 230, 0.25));
+}
+
+/* ---------- cards ---------- */
+.ct-cards {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 0.7em;
+	margin-top: 0.6em;
+}
+.ct-card {
+	background: rgba(16, 24, 40, 0.7);
+	border: 1px solid var(--lb-line);
+	border-radius: 12px;
+	padding: 0.7em 0.75em;
+}
+.ct-card .num {
+	font-family: var(--lb-mono);
+	color: var(--lb-blue);
+	font-weight: 600;
+	font-size: 0.55em;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+.ct-card .ct-title {
+	color: #fff;
+	font-weight: 700;
+	font-size: 0.72em;
+	margin: 0.25em 0 0.35em;
+	line-height: 1.2;
+}
+.ct-card .status {
+	display: inline-block;
+	font-family: var(--lb-mono);
+	font-size: 0.45em;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: #090d15;
+	background: var(--lb-green);
+	border-radius: 20px;
+	padding: 0.25em 0.8em;
+}
+
+/* card de advertencia / problema (borde ámbar punteado) */
+.ct-card.tentative {
+	border-style: dashed;
+	border-color: rgba(230, 170, 73, 0.5);
+	background: var(--lb-amber-dim);
+}
+.ct-card.tentative .num {
+	color: var(--lb-amber);
+}
+
+/* card de éxito (borde verde) */
+.ct-card.win {
+	border-color: rgba(62, 207, 142, 0.5);
+	background: var(--lb-green-dim);
+}
+.ct-card.win .num {
+	color: var(--lb-green);
+}
+
+/* ---------- callout objetivo / takeaway ---------- */
+.ct-objective {
+	border-left: 4px solid var(--lb-blue);
+	background: var(--lb-blue-dim);
+	padding: 0.5em 0.9em;
+	border-radius: 0 10px 10px 0;
+	font-size: 0.72em;
+	color: var(--lb-text);
+	margin: 0 0 0.7em 0;
+}
+.ct-objective span {
+	font-family: var(--lb-mono);
+	color: var(--lb-blue);
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+	font-size: 0.7em;
+	display: block;
+	margin-bottom: 0.2em;
+}
+.ct-objective.amber {
+	border-left-color: var(--lb-amber);
+	background: var(--lb-amber-dim);
+}
+.ct-objective.amber span {
+	color: var(--lb-amber);
+}
+.ct-objective.green {
+	border-left-color: var(--lb-green);
+	background: var(--lb-green-dim);
+}
+.ct-objective.green span {
+	color: var(--lb-green);
+}
+
+/* pills */
+.ct-confirm-tag {
+	display: inline-block;
+	font-family: var(--lb-mono);
+	font-size: 0.45em;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--lb-amber);
+	border: 1px solid var(--lb-amber);
+	border-radius: 20px;
+	padding: 0.2em 0.7em;
+}
+.ct-future-tag {
+	display: inline-block;
+	font-family: var(--lb-mono);
+	font-size: 0.45em;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: #090d15;
+	background: var(--lb-amber);
+	border-radius: 20px;
+	padding: 0.25em 0.8em;
+}
+
+/* layout compacto para slides densas de cards */
+.reveal section.proposals h2 {
+	font-size: 1.15em;
+	margin-bottom: 0.15em;
+}
+.reveal section.proposals h2::after {
+	width: 60px;
+	height: 4px;
+	margin-top: 0.2em;
+}
+.reveal section.proposals .ct-card {
+	padding: 0.45em 0.6em;
+	border-radius: 10px;
+}
+.reveal section.proposals .ct-card .num {
+	font-size: 0.42em;
+}
+.reveal section.proposals .ct-card .ct-title {
+	font-size: 0.5em;
+	margin: 0.12em 0 0.2em;
+}
+.reveal section.proposals .ct-card p {
+	font-size: 0.46em;
+	line-height: 1.25;
+}
+.reveal section.proposals .ct-card ul {
+	font-size: 0.46em;
+}
+.reveal section.proposals .ct-card ul li {
+	margin: 0.2em 0;
+	line-height: 1.25;
+	padding-left: 1.1em;
+}
+.reveal section.proposals .ct-card ul li::before {
+	top: 0.4em;
+	width: 0.45em;
+	height: 0.45em;
+}
+
+/* ---------- diagramas de arquitectura (SVG inline) ---------- */
+.reveal svg.arch {
+	width: 100%;
+	height: auto;
+	overflow: visible;
+}
+.reveal svg.arch text {
+	font-family: var(--lb-mono);
+	fill: var(--lb-text);
+}
+.reveal svg.arch .lbl {
+	font-size: 15px;
+	font-weight: 600;
+}
+.reveal svg.arch .lbl-sm {
+	font-size: 12px;
+	fill: var(--lb-muted);
+}
+.reveal svg.arch .lbl-zone {
+	font-size: 12px;
+	letter-spacing: 0.14em;
+	fill: var(--lb-muted);
+}
+.reveal svg.arch .box {
+	fill: var(--lb-surface);
+	stroke: var(--lb-blue);
+	stroke-width: 1.5;
+	rx: 8;
+}
+.reveal svg.arch .box-amber {
+	stroke: var(--lb-amber);
+}
+.reveal svg.arch .box-green {
+	stroke: var(--lb-green);
+}
+.reveal svg.arch .zone {
+	fill: rgba(74, 134, 230, 0.05);
+	stroke: var(--lb-line);
+	stroke-width: 1.5;
+	stroke-dasharray: 6 5;
+	rx: 12;
+}
+.reveal svg.arch .zone-pub {
+	fill: rgba(62, 207, 142, 0.05);
+	stroke: rgba(62, 207, 142, 0.4);
+}
+.reveal svg.arch .zone-priv {
+	fill: rgba(74, 134, 230, 0.06);
+	stroke: rgba(74, 134, 230, 0.35);
+}
+/* zona AZ: punteado bien visible */
+.reveal svg.arch .zone-az {
+	fill: none;
+	stroke: rgba(133, 147, 169, 0.65);
+	stroke-width: 2;
+	stroke-dasharray: 9 7;
+}
+.reveal svg.arch .wire {
+	stroke: var(--lb-muted);
+	stroke-width: 1.5;
+	fill: none;
+}
+.reveal svg.arch .wire-hot {
+	stroke: var(--lb-blue);
+	stroke-dasharray: 4 5;
+}
+/* íconos monocromos re-pintados a blanco (usuarios, logo AWS, server) */
+.reveal svg.arch image.icon-white {
+	filter: brightness(0) invert(1);
+	opacity: 0.92;
+}
+/* request viajando por un cable */
+.reveal svg.arch .req {
+	fill: var(--lb-green);
+	filter: drop-shadow(0 0 6px rgba(62, 207, 142, 0.9));
+}
+.reveal svg.arch .req-blue {
+	fill: var(--lb-blue);
+	filter: drop-shadow(0 0 6px rgba(74, 134, 230, 0.9));
+}
+
+/* tabla comparativa */
+.reveal table {
+	border-collapse: collapse;
+	width: 100%;
+	font-size: 0.58em;
+	margin-top: 0.5em;
+}
+.reveal table th {
+	font-family: var(--lb-mono);
+	font-size: 0.8em;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--lb-blue);
+	text-align: left;
+	padding: 0.5em 0.8em;
+	border-bottom: 2px solid var(--lb-line);
+}
+.reveal table td {
+	padding: 0.5em 0.8em;
+	border-bottom: 1px solid var(--lb-line);
+	vertical-align: top;
+}
+.reveal table td:first-child {
+	font-family: var(--lb-mono);
+	font-size: 0.85em;
+	color: var(--lb-muted);
+}
+
+/* bloque de pasos de demo, estilo terminal */
+.demo-steps {
+	font-family: var(--lb-mono);
+	font-size: 0.6em;
+	background: rgba(16, 24, 40, 0.8);
+	border: 1px solid var(--lb-line);
+	border-radius: 10px;
+	padding: 0.8em 1em;
+	counter-reset: step;
+}
+.demo-steps li {
+	list-style: none;
+	counter-increment: step;
+	padding-left: 2.2em !important;
+	margin: 0.55em 0 !important;
+}
+.demo-steps li::before {
+	content: counter(step) " ›" !important;
+	background: transparent !important;
+	color: var(--lb-green) !important;
+	font-weight: 600;
+	top: 0 !important;
+	width: auto !important;
+	height: auto !important;
+}
+
+.reveal section img {
+	border: none;
+	box-shadow: none;
+}
+
+.reveal .slide-number {
+	font-family: var(--lb-mono);
+	color: var(--lb-muted);
+	background: transparent;
+}
+
+.reveal .progress {
+	color: var(--lb-blue);
+}
+.reveal .controls {
+	color: var(--lb-blue);
+}

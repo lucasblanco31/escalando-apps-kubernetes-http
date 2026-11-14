@@ -1,0 +1,18 @@
+# ReferenceGrant: permite que las HTTPRoutes del namespace keda-app apunten a
+# Services del namespace keda (el interceptor). Sin esto, Gateway API rechaza la
+# referencia entre namespaces. Se crea en el namespace DESTINO.
+# Fuente: https://gateway-api.sigs.k8s.io/api-types/referencegrant/
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: keda-app-to-interceptor
+  namespace: keda
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: keda-app
+  to:
+    - group: ""
+      kind: Service
+      name: keda-add-ons-http-interceptor-proxy

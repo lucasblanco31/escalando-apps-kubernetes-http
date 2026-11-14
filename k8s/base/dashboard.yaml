@@ -1,0 +1,71 @@
+# Deployment y Service del panel de la demo.
+# Muestra réplicas de vote y worker, nodos, cola de Redis, votos en Postgres y req/s
+# del interceptor de KEDA. También tiene el generador de carga y el botón de reinicio,
+# protegidos con el código del Secret `dashboard-demo` (se crea a mano, no va en el repo).
+
+# ── 1. Deployment ─────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-dashboard
+  namespace: keda-app
+spec:
+  replicas: 1           # Una sola réplica: el generador de carga vive en memoria del Pod
+  selector:
+    matchLabels:
+      app: k8s-dashboard
+  template:
+    metadata:
+      labels:
+        app: k8s-dashboard
+    spec:
+      serviceAccountName: k8s-dashboard  # Permisos de lectura de Pods, HPAs y nodos (rbac.yaml)
+      containers:
+        - name: k8s-dashboard
+          image: aura-dashboard  # el overlay (local o aws) fija el registro y el tag
+          env:
+            - name: NAMESPACE
+              value: "keda-app"
+            - name: DB_DSN
+              value: "host=postgres user=postgres password=postgres"  # Credenciales de demo, sin persistencia
+            - name: REDIS_HOST
+              value: "redis"
+            - name: INTERCEPTOR_ADMIN
+              value: "http://keda-add-ons-http-interceptor-admin.keda:9090"  # Admin del interceptor, en el namespace keda
+            - name: VOTE_URL
+              value: "http://keda-add-ons-http-interceptor-proxy.keda:8080"  # El generador entra por el interceptor, como el público
+            - name: VOTE_HOST
+              value: "aura.localhost"  # Host de la app: el interceptor enruta y cuenta por este valor
+            - name: OPTION_A
+              value: "Maradona"
+            - name: OPTION_B
+              value: "Messi"
+            - name: DEMO_CODE
+              valueFrom:
+                secretKeyRef:
+                  name: dashboard-demo
+                  key: code
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+---
+# ── 2. Service ────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-dashboard
+  namespace: keda-app
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: k8s-dashboard

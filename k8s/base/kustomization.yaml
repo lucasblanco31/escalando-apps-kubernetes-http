@@ -1,0 +1,14 @@
+# Lo común a los dos caminos: datos, la app, el escalado con KEDA y el panel.
+# No incluye cómo entra el tráfico desde afuera: eso lo agrega cada overlay.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - redis.yaml
+  - vote.yaml
+  - vote-httpscaledobject.yaml
+  - worker.yaml
+  - worker-scaledobject.yaml
+  - dashboard.yaml
+  - dashboard-rbac.yaml

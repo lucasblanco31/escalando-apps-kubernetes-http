@@ -1,0 +1,21 @@
+# ScaledObject configura el escalado automático del worker basado en el largo de la lista Redis 'votes'.
+# Cuando hay votos pendientes en Redis, KEDA levanta réplicas del worker para procesarlos.
+# Cuando la lista está vacía, baja a 0 réplicas (scale-to-zero).
+apiVersion: keda.sh/v1alpha1  # API core de KEDA
+kind: ScaledObject             # Tipo de recurso: escalado basado en triggers externos
+metadata:
+  name: worker-scaledobject  # Nombre del recurso
+  namespace: keda-app
+spec:
+  scaleTargetRef:
+    name: worker   # Nombre del Deployment a escalar
+  minReplicaCount: 0   # Escala hasta CERO cuando la cola está vacía
+  maxReplicaCount: 10  # Máximo de réplicas bajo alta carga
+  pollingInterval: 5   # Cada 5 segundos KEDA consulta el largo de la lista Redis para decidir si escalar
+  cooldownPeriod: 30   # Segundos que KEDA espera tras la última métrica en cero antes de terminar todos los Pods; evita que el worker muera y reviva en ráfagas cortas
+  triggers:
+    - type: redis   # Trigger de tipo Redis: mide el largo de una lista (cola de mensajes)
+      metadata:
+        address: redis.keda-app.svc.cluster.local:6379  # DNS interno del Service Redis dentro del cluster
+        listName: votes      # Nombre de la lista Redis que actúa como cola; el vote app hace LPUSH aquí
+        listLength: "1"    # Ítems en la lista que justifican UNA réplica; KEDA calcula réplicas = ceil(longitud / 1)

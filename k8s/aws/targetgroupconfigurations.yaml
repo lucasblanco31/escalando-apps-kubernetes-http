@@ -1,0 +1,33 @@
+# TargetGroupConfiguration del interceptor de KEDA HTTP Add-on.
+# Vive en el namespace del Service (keda): el ALB registra las IPs de los Pods del
+# interceptor como targets. Auto Mode trae el mismo CRD que el AWS LBC (gateway.k8s.aws/v1).
+# Esquema: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v3.5/guide/gateway/targetgroupconfig/
+apiVersion: gateway.k8s.aws/v1
+kind: TargetGroupConfiguration
+metadata:
+  name: interceptor-proxy-tgc
+  namespace: keda
+spec:
+  targetReference:
+    name: keda-add-ons-http-interceptor-proxy
+  defaultConfiguration:
+    targetType: ip # tráfico directo a la IP del Pod, sin NodePort
+    healthCheckConfig:
+      healthCheckPath: /
+      healthCheckProtocol: HTTP
+      matcher:
+        httpCode: "200-404" # el health check del ALB no manda el Host de la app: el interceptor responde 404 y eso cuenta como vivo
+---
+# TargetGroupConfiguration del Service del panel: el ALB registra las IPs de sus Pods.
+apiVersion: gateway.k8s.aws/v1
+kind: TargetGroupConfiguration
+metadata:
+  name: k8s-dashboard-tgc
+  namespace: keda-app
+spec:
+  targetReference:
+    name: k8s-dashboard
+  defaultConfiguration:
+    targetType: ip
+    healthCheckConfig:
+      healthCheckPath: /healthz

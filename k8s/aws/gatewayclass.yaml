@@ -1,0 +1,11 @@
+# GatewayClass que apunta al controlador de ALB de EKS Auto Mode.
+# Es la novedad del 2026-10-28: no hay AWS Load Balancer Controller instalado,
+# el ALB lo crea y lo mantiene Auto Mode.
+# Aplicarla primero: tarda unos segundos en quedar lista para que un Gateway la use.
+# Fuente: https://docs.aws.amazon.com/eks/latest/userguide/auto-configure-gateway-api.html
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: eks-auto-alb
+spec:
+  controllerName: eks.amazonaws.com/gateway-alb # gateway-nlb sería un NLB (rutas L4)

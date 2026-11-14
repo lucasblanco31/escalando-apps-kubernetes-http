@@ -1,0 +1,40 @@
+# Camino AWS: EKS Auto Mode crea el ALB a partir del Gateway (Gateway API
+# administrada por Auto Mode). Antes de aplicar, reemplaza:
+#   aura.example.com / aura-panel.example.com  → tus dominios (acá y en httproutes.yaml)
+#   <TU_CERT_ARN>                               → certificado ACM de esos dominios (loadbalancerconfiguration.yaml)
+#   <TU_ACCOUNT_ID>                             → tu cuenta, para las imágenes de ECR (abajo)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../base
+  - gatewayclass.yaml
+  - loadbalancerconfiguration.yaml
+  - gateway.yaml
+  - httproutes.yaml
+  - referencegrant.yaml
+  - targetgroupconfigurations.yaml
+images:
+  - name: aura-vote
+    newName: <TU_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/keda-http-aura
+    newTag: vote-v1
+  - name: aura-worker
+    newName: <TU_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/keda-http-aura
+    newTag: worker-v1
+  - name: aura-dashboard
+    newName: <TU_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/keda-http-aura
+    newTag: dashboard-v1
+patches:
+  - target:
+      kind: HTTPScaledObject
+      name: vote-httpscaledobject
+    patch: |-
+      - op: replace
+        path: /spec/hosts/0
+        value: aura.example.com
+  - target:
+      kind: Deployment
+      name: k8s-dashboard
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/5/value
+        value: aura.example.com

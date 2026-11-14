@@ -1,0 +1,9 @@
+# Values del chart kedacore/keda-add-ons-http 0.15.0 (namespace keda).
+# Una réplica de cada componente: alcanza para una sala y simplifica el panel.
+# helm install http-add-on kedacore/keda-add-ons-http -n keda --version 0.15.0 -f demo/app/k8s-keda/values-http-add-on.yaml
+scaler:
+  replicas: 1
+interceptor:
+  replicas:
+    min: 1
+    max: 1

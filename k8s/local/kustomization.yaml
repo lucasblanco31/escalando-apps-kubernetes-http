@@ -1,0 +1,15 @@
+# Camino local (minikube): sin balanceador ni dominio. Se entra con
+# kubectl port-forward al interceptor de KEDA y se usa el host aura.localhost,
+# que los navegadores resuelven solos a 127.0.0.1.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../base
+images:
+  # imágenes construidas dentro de minikube por local/up.sh
+  - name: aura-vote
+    newTag: local
+  - name: aura-worker
+    newTag: local
+  - name: aura-dashboard
+    newTag: local

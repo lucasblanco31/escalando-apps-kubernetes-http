@@ -1,0 +1,7 @@
+flask
+kubernetes
+psycopg2-binary
+gunicorn
+gevent
+redis
+packaging

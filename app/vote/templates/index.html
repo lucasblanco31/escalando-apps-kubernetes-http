@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>¿Quién tiene más aura? — {{ option_a }} vs {{ option_b }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;600&display=swap" />
+<style>
+  /* Estilo tomado de 2.arquitecturas-basicas/demo/aura/index.html */
+  :root {
+    --ink: #090d15;
+    --surface: #101828;
+    --line: #1c2942;
+    --blue: #4a86e6;
+    --amber: #e6aa49;
+    --green: #3ecf8e;
+    --text: #e9eef7;
+    --muted: #8593a9;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+    --sans: "Bricolage Grotesque", system-ui, -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: radial-gradient(circle at 50% 0%, #12203a 0%, var(--ink) 62%);
+    color: var(--text);
+    font-family: var(--sans);
+    padding: clamp(1.2rem, 4vw, 2.6rem) 1rem 3rem;
+  }
+
+  .page {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.4rem, 4vw, 2.4rem);
+  }
+
+  h1 { margin: 0; font-weight: 800; letter-spacing: -0.025em; }
+
+  .ask {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.7rem;
+    text-align: center;
+  }
+  .ask h1 { font-size: clamp(1.9rem, 6vw, 3.4rem); text-wrap: balance; }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    padding: 0.32rem 0.65rem;
+    border: 1px solid rgba(62,207,142,.45);
+    color: var(--green);
+    border-radius: 100px;
+  }
+
+  .arena {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: stretch;
+    gap: clamp(0.5rem, 2vw, 1.1rem);
+    max-width: 620px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .vs {
+    align-self: center;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  .fighter {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 0.9rem 0.9rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.55rem;
+    text-align: center;
+    transition: border-color .2s, background .2s;
+  }
+  .fighter img {
+    width: 100%;
+    max-width: 210px;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 10px;
+    display: block;
+  }
+  .fighter .name { font-size: clamp(1.05rem, 3vw, 1.45rem); font-weight: 800; }
+  .fighter.chosen { border-color: var(--green); background: #12211c; }
+  .fighter.dimmed { opacity: .55; }
+
+  .fighter form { width: 100%; }
+  .fighter button {
+    width: 100%;
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--ink);
+    background: var(--text);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+  }
+  .fighter button:hover:not([disabled]) { background: #fff; }
+  .fighter button:active:not([disabled]) { transform: translateY(1px); }
+  .fighter button:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+  .fighter button[disabled] {
+    cursor: default;
+    background: transparent;
+    color: var(--green);
+    border-color: rgba(62,207,142,.45);
+  }
+
+  .note {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  /* El pod que atendió este request: con varias réplicas, cambia al recargar */
+  .pod {
+    align-self: center;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.5rem 0.8rem;
+  }
+  .pod span { color: var(--amber); }
+
+  .brand {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="ask">
+    <h1>¿Quién tiene más aura?</h1>
+    <span class="badge">en vivo · Kubernetes + KEDA</span>
+  </header>
+
+  <section>
+    <div class="arena">
+      <article class="fighter {% if vote == 'a' %}chosen{% elif vote == 'b' %}dimmed{% endif %}">
+        <img src="{{ url_for('static', filename='images/opcion-a.svg') }}" alt="{{ option_a }}" />
+        <span class="name">{{ option_a }}</span>
+        <form method="POST" action="/">
+          <button type="submit" name="vote" value="a" {% if vote == 'a' %}disabled{% endif %}>
+            {% if vote == 'a' %}Tu voto{% else %}Votar{% endif %}
+          </button>
+        </form>
+      </article>
+      <span class="vs">vs</span>
+      <article class="fighter {% if vote == 'b' %}chosen{% elif vote == 'a' %}dimmed{% endif %}">
+        <img src="{{ url_for('static', filename='images/opcion-b.svg') }}" alt="{{ option_b }}" />
+        <span class="name">{{ option_b }}</span>
+        <form method="POST" action="/">
+          <button type="submit" name="vote" value="b" {% if vote == 'b' %}disabled{% endif %}>
+            {% if vote == 'b' %}Tu voto{% else %}Votar{% endif %}
+          </button>
+        </form>
+      </article>
+    </div>
+  </section>
+
+  <p class="note">
+    {% if vote %}¿Cambiaste de opinión? Puedes votar la otra opción. Los resultados, en la pantalla.
+    {% else %}Elige uno. Puedes cambiar el voto cuando quieras.{% endif %}
+  </p>
+
+  <p class="pod">te atendió el pod <span>{{ hostname }}</span></p>
+
+  <p class="brand">lucasdevops.cloud</p>
+
+</div>
+</body>
+</html>

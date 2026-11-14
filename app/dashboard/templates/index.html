@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Panel — ¿Quién tiene más aura?</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='stylesheets/style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="page">
+
+    <header class="header">
+      <div class="header-left">
+        <p class="eyebrow">Kubernetes · KEDA · EKS Auto Mode · en vivo</p>
+        <h1>¿Quién tiene más aura?</h1>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="namespace-tag">ns: keda-app</span>
+        <button class="reset-btn" id="reset-btn" onclick="resetDemo()">Reiniciar</button>
+        <span class="live-badge"><span class="live-dot"></span>Live</span>
+      </div>
+    </header>
+
+    <!-- load test panel -->
+    <div class="load-panel">
+      <div class="load-panel__header">
+        <span class="load-panel__title">Generador de carga</span>
+        <span class="load-status" id="load-status">Detenido</span>
+      </div>
+
+      <div class="load-slider-row">
+        <span class="load-option load-option-a">{{ option_a }} <strong id="pct-slider-a">50%</strong></span>
+        <input type="range" id="load-slider" class="load-slider" min="0" max="100" value="50">
+        <span class="load-option load-option-b"><strong id="pct-slider-b">50%</strong> {{ option_b }}</span>
+      </div>
+
+      <div class="load-controls">
+        <label class="load-label">
+          Concurrencia
+          <input type="number" id="load-concurrency" class="load-input" value="50" min="1" max="150">
+        </label>
+        <input type="text" id="load-code" class="load-input load-code-input" placeholder="código" maxlength="20" autocomplete="off">
+        <button class="load-btn" id="btn-start" onclick="startLoadTest()">▶ Iniciar</button>
+        <button class="load-btn load-btn--stop" id="btn-stop" onclick="stopLoadTest()">■ Detener</button>
+      </div>
+
+      <div class="load-counters" id="load-counters" style="display:none">
+        <span id="lt-votes-a" style="color:#dc2626">{{ option_a }}: 0 votos</span>
+        <span class="load-dot-sep">·</span>
+        <span id="lt-votes-b" style="color:#38bdf8">{{ option_b }}: 0 votos</span>
+      </div>
+    </div>
+
+    <!-- votes section -->
+    <div class="votes-panel" id="votes-panel">
+      <div class="votes-side votes-side-a">
+        <span class="votes-emoji">🔟</span>
+        <span class="votes-label">{{ option_a }}</span>
+        <span class="votes-pct" id="pct-a">50%</span>
+        <span class="votes-count" id="count-a">0 votos</span>
+      </div>
+
+      <div class="votes-center">
+        <span class="votes-question">¿Quién tiene más aura?</span>
+        <div class="votes-bar-track">
+          <div class="votes-bar-fill votes-bar-a" id="bar-a" style="width:50%"></div>
+          <div class="votes-bar-fill votes-bar-b" id="bar-b" style="width:50%"></div>
+        </div>
+        <span class="votes-total" id="votes-total">— votos totales</span>
+      </div>
+
+      <div class="votes-side votes-side-b">
+        <span class="votes-emoji">🐐</span>
+        <span class="votes-label">{{ option_b }}</span>
+        <span class="votes-pct" id="pct-b">50%</span>
+        <span class="votes-count" id="count-b">0 votos</span>
+      </div>
+    </div>
+
+    <!-- arquitectura: qué pasa por detrás de cada voto -->
+    <div class="arch-card">
+      <div class="arch-card__title">Qué pasa por detrás de tu voto</div>
+      <svg viewBox="0 0 980 300" role="img" aria-label="Celular, ALB, interceptor de KEDA, vote, Redis, worker y Postgres; KEDA escala vote por pedidos por segundo y worker por la cola de Redis">
+        <!-- fila 1: el camino del pedido -->
+        <text x="40" y="108" text-anchor="middle" style="font-size:34px">📱</text>
+        <text class="arch-sub" x="40" y="140" text-anchor="middle">tu celular</text>
+
+        <rect class="arch-box" x="95" y="65" width="150" height="70" rx="10" />
+        <image href="{{ url_for('static', filename='images/alb.png') }}" x="105" y="80" width="40" height="40" />
+        <text class="arch-name" x="153" y="96">ALB</text>
+        <text class="arch-sub" x="153" y="114">Gateway API</text>
+        <text class="arch-sub" x="153" y="128">Auto Mode</text>
+
+        <rect class="arch-box arch-box--keda" x="285" y="65" width="180" height="70" rx="10" />
+        <image href="{{ url_for('static', filename='images/keda.png') }}" x="295" y="80" width="40" height="40" />
+        <text class="arch-name" x="343" y="96">Interceptor</text>
+        <text class="arch-sub" x="343" y="114">cuenta pedidos</text>
+        <text class="arch-sub" x="343" y="128">retiene si hay 0</text>
+
+        <rect class="arch-box arch-box--vote" x="495" y="65" width="160" height="70" rx="10" />
+        <text class="arch-name" x="511" y="94">⚽ vote</text>
+        <text class="arch-live arch-live--vote" id="arch-vote" x="511" y="120">0 pods</text>
+
+        <rect class="arch-box" x="705" y="65" width="140" height="70" rx="10" />
+        <image href="{{ url_for('static', filename='images/redis.png') }}" x="715" y="80" width="40" height="40" />
+        <text class="arch-name" x="763" y="96">Redis</text>
+        <text class="arch-sub" x="763" y="114">cola de votos</text>
+
+        <line class="arch-wire" x1="65" y1="100" x2="95" y2="100" />
+        <line class="arch-wire" x1="245" y1="100" x2="285" y2="100" />
+        <line class="arch-wire" x1="465" y1="100" x2="495" y2="100" />
+        <line class="arch-wire" x1="655" y1="100" x2="705" y2="100" />
+
+        <!-- fila 2: KEDA decide, worker guarda -->
+        <rect class="arch-box arch-box--keda" x="285" y="205" width="180" height="70" rx="10" />
+        <image href="{{ url_for('static', filename='images/keda.png') }}" x="295" y="220" width="40" height="40" />
+        <text class="arch-name" x="343" y="236">KEDA</text>
+        <text class="arch-sub" x="343" y="254">decide los pods</text>
+
+        <rect class="arch-box arch-box--worker" x="705" y="205" width="140" height="70" rx="10" />
+        <text class="arch-name" x="721" y="234">⚙️ worker</text>
+        <text class="arch-live arch-live--worker" id="arch-worker" x="721" y="260">0 pods</text>
+
+        <rect class="arch-box" x="875" y="205" width="100" height="70" rx="10" />
+        <image href="{{ url_for('static', filename='images/postgres.png') }}" x="885" y="215" width="32" height="32" />
+        <text class="arch-sub" x="885" y="266">Postgres</text>
+
+        <line class="arch-wire" x1="765" y1="135" x2="765" y2="205" />
+        <line class="arch-wire" x1="845" y1="240" x2="875" y2="240" />
+
+        <!-- KEDA: lo que mide y lo que escala -->
+        <line class="arch-wire arch-wire--keda" x1="365" y1="135" x2="365" y2="205" />
+        <text class="arch-label" x="373" y="166">req/s:</text>
+        <text class="arch-live arch-live--rps" id="arch-rps" x="373" y="184">0</text>
+        <path class="arch-wire arch-wire--keda" d="M 465,225 L 575,225 L 575,135" />
+        <text class="arch-label" x="585" y="190">1 pod cada 10 req/s</text>
+        <path class="arch-wire arch-wire--keda" d="M 465,255 L 705,255" />
+        <text class="arch-label" x="490" y="273">1 pod por cada voto en la cola</text>
+
+        <!-- un voto viajando y la métrica subiendo a KEDA -->
+        <circle class="arch-req" r="5">
+          <animateMotion dur="4s" repeatCount="indefinite" path="M 65,100 L 765,100 L 765,240 L 900,240" />
+        </circle>
+        <circle class="arch-req" r="5">
+          <animateMotion dur="4s" begin="-2s" repeatCount="indefinite" path="M 65,100 L 765,100 L 765,240 L 900,240" />
+        </circle>
+        <circle class="arch-metric" r="4">
+          <animateMotion dur="2s" repeatCount="indefinite" path="M 365,135 L 365,205" />
+        </circle>
+      </svg>
+      <p class="arch-note">Todo corre en EKS Auto Mode: si los pods no entran en los nodos que hay, AWS agrega un nodo; cuando sobra, lo saca.</p>
+    </div>
+
+    <!-- charts section -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-card__header">
+          <span class="chart-card__title">Cola Redis · votes</span>
+          <span class="chart-card__value" id="val-redis" style="color:#6366f1">—</span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chart-redis"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card__header">
+          <span class="chart-card__title">HTTP req/s · aura <small id="src-http"></small></span>
+          <span class="chart-card__value" id="val-http" style="color:#22c55e">—</span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chart-http"></canvas></div>
+      </div>
+    </div>
+
+    <!-- pods section -->
+    {% set icons = {'vote': '⚽', 'worker': '⚙️'} %}
+    {% for dep in deployments %}
+    <div class="group" id="group-{{ dep }}">
+      <div class="group-header">
+        <span class="group-name">
+          <span class="group-emoji">{{ icons[dep] }}</span>
+          {{ dep }}
+        </span>
+        <span class="pod-count" id="count-{{ dep }}">0 pods</span>
+      </div>
+      <table class="pod-table">
+        <thead>
+          <tr>
+            <th>Pod</th>
+            <th>Estado</th>
+            <th>Ready</th>
+            <th>Reinicios</th>
+            <th>Edad</th>
+          </tr>
+        </thead>
+        <tbody id="pods-{{ dep }}">
+          <tr class="empty-row"><td colspan="5">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+
+    <!-- nodes section: Auto Mode agrega y quita nodos según los pods pendientes -->
+    <div class="group" id="group-nodes">
+      <div class="group-header">
+        <span class="group-name">
+          <span class="group-emoji">🖥️</span>
+          nodos (EKS Auto Mode)
+        </span>
+        <span class="pod-count" id="count-nodes">0 nodos</span>
+      </div>
+      <table class="pod-table">
+        <thead>
+          <tr>
+            <th>Nodo</th>
+            <th>Tipo</th>
+            <th>Capacidad</th>
+            <th>Estado</th>
+            <th>Edad</th>
+          </tr>
+        </thead>
+        <tbody id="nodes-body">
+          <tr class="empty-row"><td colspan="5">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <div class="brand-bar">
+    <span class="brand-bar__text">lucasdevops.cloud · Lucas Blanco</span>
+  </div>
+
+  <script>
+    var deployments = {{ deployments | tojson }};
+    var OPTION_A = {{ option_a | tojson }};
+    var OPTION_B = {{ option_b | tojson }};
+
+    // El código lo valida el servidor (DEMO_CODE); se envía en un header
+    function demoHeaders() {
+      return {
+        'Content-Type': 'application/json',
+        'X-Demo-Code': document.getElementById('load-code').value
+      };
+    }
+
+    function shakeCode() {
+      var codeInput = document.getElementById('load-code');
+      codeInput.classList.remove('load-code--shake');
+      void codeInput.offsetWidth;
+      codeInput.classList.add('load-code--error', 'load-code--shake');
+      setTimeout(function() { codeInput.classList.remove('load-code--shake'); }, 500);
+    }
+
+    function resetDemo() {
+      var btn = document.getElementById('reset-btn');
+      btn.disabled = true;
+      btn.textContent = '…';
+      fetch('/reset', { method: 'POST', headers: demoHeaders() })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          btn.textContent = d.ok ? 'OK ✓' : 'Error';
+          setTimeout(function() { btn.textContent = 'Reiniciar'; btn.disabled = false; }, 2000);
+        })
+        .catch(function() {
+          btn.textContent = 'Error';
+          setTimeout(function() { btn.textContent = 'Reiniciar'; btn.disabled = false; }, 2000);
+        });
+    }
+
+    function statusClass(s) {
+      if (s === 'Running') return 'status-running';
+      if (s === 'Pending') return 'status-pending';
+      if (s === 'Failed')  return 'status-failed';
+      return 'status-unknown';
+    }
+
+    function renderPods(dep, pods) {
+      var tbody = document.getElementById('pods-' + dep);
+      var count = document.getElementById('count-' + dep);
+      count.textContent = pods.length + (pods.length === 1 ? ' pod' : ' pods');
+      if (pods.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Sin pods activos</td></tr>';
+        return;
+      }
+      tbody.innerHTML = pods.map(function(p) {
+        var cls = statusClass(p.status);
+        return '<tr>' +
+          '<td><span class="pod-name">' + p.name + '</span></td>' +
+          '<td><span class="status ' + cls + '"><span class="status-dot"></span>' + p.status + '</span></td>' +
+          '<td class="ready-cell">' + p.ready + '</td>' +
+          '<td class="ready-cell">' + p.restarts + '</td>' +
+          '<td class="age-cell">' + p.age + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    function renderVotes(v) {
+      if (!v) return;
+      document.getElementById('pct-a').textContent    = v.pct_a + '%';
+      document.getElementById('pct-b').textContent    = v.pct_b + '%';
+      document.getElementById('count-a').textContent  = v.a + (v.a === 1 ? ' voto' : ' votos');
+      document.getElementById('count-b').textContent  = v.b + (v.b === 1 ? ' voto' : ' votos');
+      document.getElementById('bar-a').style.width    = v.pct_a + '%';
+      document.getElementById('bar-b').style.width    = v.pct_b + '%';
+      document.getElementById('votes-total').textContent = v.total + (v.total === 1 ? ' voto total' : ' votos totales');
+    }
+
+    // --- charts ---
+    var MAX_PTS = 60;
+
+    function makeChart(canvasId, color) {
+      var ctx = document.getElementById(canvasId).getContext('2d');
+      return new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            data: [],
+            borderColor: color,
+            backgroundColor: color.replace(')', ', 0.12)').replace('rgb', 'rgba'),
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.4,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 250 },
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: {
+              ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 9 }, maxTicksLimit: 5, maxRotation: 0 },
+              grid: { color: 'rgba(255,255,255,0.04)' },
+            },
+            y: {
+              min: 0,
+              ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 9 }, precision: 0 },
+              grid: { color: 'rgba(255,255,255,0.04)' },
+            }
+          },
+          plugins: { legend: { display: false }, tooltip: { enabled: false } }
+        }
+      });
+    }
+
+    var redisChart = makeChart('chart-redis', 'rgb(99,102,241)');
+    var httpChart  = makeChart('chart-http',  'rgb(34,197,94)');
+
+    function pushPoint(chart, label, value) {
+      chart.data.labels.push(label);
+      chart.data.datasets[0].data.push(value);
+      if (chart.data.labels.length > MAX_PTS) {
+        chart.data.labels.shift();
+        chart.data.datasets[0].data.shift();
+      }
+      chart.update('none');
+    }
+
+    function nowLabel() {
+      var d = new Date();
+      return d.getHours().toString().padStart(2,'0') + ':' +
+             d.getMinutes().toString().padStart(2,'0') + ':' +
+             d.getSeconds().toString().padStart(2,'0');
+    }
+
+    function renderMetrics(m) {
+      if (!m) return;
+      var t = nowLabel();
+
+      var rq = m.redis_queue;
+      document.getElementById('val-redis').textContent = rq !== null && rq !== undefined ? rq : '—';
+      pushPoint(redisChart, t, rq !== null && rq !== undefined ? rq : 0);
+
+      var hr = m.http_rate;
+      document.getElementById('val-http').textContent = hr !== null && hr !== undefined ? hr.toFixed(2) : '—';
+      document.getElementById('src-http').textContent = m.http_source ? '(' + m.http_source + ')' : '';
+      pushPoint(httpChart, t, hr !== null && hr !== undefined ? hr : 0);
+    }
+
+    // --- load test ---
+    var slider = document.getElementById('load-slider');
+    function updateSlider() {
+      var v = slider.value;
+      document.getElementById('pct-slider-a').textContent = v + '%';
+      document.getElementById('pct-slider-b').textContent = (100 - v) + '%';
+      slider.style.setProperty('--v', v + '%');
+    }
+    slider.addEventListener('input', updateSlider);
+    updateSlider();
+
+    var ltRunning = false;
+
+    function startLoadTest() {
+      var ratioA      = parseInt(slider.value);
+      var concurrency = parseInt(document.getElementById('load-concurrency').value) || 50;
+      fetch('/load-test/start', {
+        method: 'POST',
+        headers: demoHeaders(),
+        body: JSON.stringify({ ratio_a: ratioA, concurrency: concurrency })
+      }).then(function(r) {
+        if (r.status === 403) { shakeCode(); return; }
+        document.getElementById('load-code').classList.remove('load-code--error');
+        setLoadTestUI(true);
+      });
+    }
+
+    function stopLoadTest() {
+      fetch('/load-test/stop', { method: 'POST', headers: demoHeaders() }).then(function(r) {
+        if (r.status === 403) { shakeCode(); return; }
+        setLoadTestUI(false);
+      });
+    }
+
+    function renderNodes(nodes) {
+      if (!nodes) return;
+      var tbody = document.getElementById('nodes-body');
+      document.getElementById('count-nodes').textContent = nodes.length + (nodes.length === 1 ? ' nodo' : ' nodos');
+      if (nodes.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Sin nodos</td></tr>';
+        return;
+      }
+      tbody.innerHTML = nodes.map(function(n) {
+        var st = n.ready ? 'Ready' : 'NotReady';
+        return '<tr>' +
+          '<td><span class="pod-name">' + n.name + '</span></td>' +
+          '<td class="ready-cell">' + n.type + '</td>' +
+          '<td class="ready-cell">' + n.capacity + '</td>' +
+          '<td><span class="status ' + (n.ready ? 'status-running' : 'status-pending') + '"><span class="status-dot"></span>' + st + '</span></td>' +
+          '<td class="age-cell">' + n.age + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    function setLoadTestUI(running) {
+      ltRunning = running;
+      document.getElementById('btn-start').disabled = running;
+      document.getElementById('btn-stop').disabled  = !running;
+      document.getElementById('load-status').textContent = running ? 'En ejecución…' : 'Detenido';
+      document.getElementById('load-status').classList.toggle('load-status--running', running);
+      document.getElementById('load-counters').style.display = running ? 'flex' : 'none';
+      document.getElementById('load-slider').disabled     = running;
+      document.getElementById('load-concurrency').disabled = running;
+      // el código queda habilitado: hace falta para detener
+    }
+
+    function renderLoadTest(lt) {
+      if (!lt) return;
+      if (lt.running !== ltRunning) setLoadTestUI(lt.running);
+      if (lt.running) {
+        document.getElementById('lt-votes-a').textContent = OPTION_A + ': ' + lt.votes_a + ' votos';
+        document.getElementById('lt-votes-b').textContent = OPTION_B + ': ' + lt.votes_b + ' votos';
+      }
+    }
+
+    // números en vivo dentro del diagrama de arquitectura
+    function renderArch(pods, m) {
+      var nv = (pods.vote || []).length, nw = (pods.worker || []).length;
+      document.getElementById('arch-vote').textContent   = nv + (nv === 1 ? ' pod' : ' pods');
+      document.getElementById('arch-worker').textContent = nw + (nw === 1 ? ' pod' : ' pods');
+      if (m && m.http_rate !== null && m.http_rate !== undefined) {
+        document.getElementById('arch-rps').textContent = m.http_rate.toFixed(1);
+      }
+    }
+
+    var es = new EventSource('/stream');
+    es.onmessage = function(e) {
+      var data = JSON.parse(e.data);
+      if (data.error) return;
+      renderVotes(data.votes);
+      deployments.forEach(function(dep) {
+        renderPods(dep, data.pods[dep] || []);
+      });
+      renderMetrics(data.metrics);
+      renderNodes(data.nodes);
+      renderArch(data.pods, data.metrics);
+      renderLoadTest(data.load_test);
+    };
+  </script>
+</body>
+</html>

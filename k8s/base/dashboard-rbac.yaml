@@ -1,0 +1,67 @@
+# RBAC mínimo para que el dashboard pueda consultar el estado del cluster.
+# El dashboard necesita leer Pods (para ver réplicas activas), HPAs (estado del escalado) y nodos
+# (para mostrar cuándo Auto Mode agrega uno).
+# Principio de menor privilegio: solo get/list/watch. Pods y HPAs solo en keda-app; los nodos
+# no tienen namespace, por eso van en un ClusterRole aparte.
+
+# ── 1. ServiceAccount ─────────────────────────────────────────────────────────
+# Identidad que se asigna al Pod del dashboard; el Role le otorgará permisos a esta identidad.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8s-dashboard   # Nombre del SA; referenciado en el Deployment como serviceAccountName
+  namespace: keda-app
+---
+# ── 2. Role ───────────────────────────────────────────────────────────────────
+# Conjunto de permisos con alcance de namespace (a diferencia de ClusterRole, que es cluster-wide).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: k8s-dashboard
+  namespace: keda-app    # Los permisos aplican SOLO dentro de este namespace
+rules:
+  - apiGroups: [""]       # API core de Kubernetes (grupo vacío = core: Pods, Services, Secrets, etc.)
+    resources: ["pods"]   # Solo el recurso 'pods'
+    verbs: ["get", "list", "watch"]  # Solo lectura: obtener uno, listar todos, observar cambios en tiempo real
+  - apiGroups: ["autoscaling"]              # API de autoscaling de Kubernetes (donde viven los HPAs)
+    resources: ["horizontalpodautoscalers"] # Solo el recurso HPA (que KEDA crea y actualiza)
+    verbs: ["get", "list", "watch"]         # Solo lectura
+---
+# ── 3. RoleBinding ────────────────────────────────────────────────────────────
+# Une el Role con el ServiceAccount: le asigna los permisos definidos arriba al SA del dashboard.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: k8s-dashboard
+  namespace: keda-app
+subjects:
+  - kind: ServiceAccount    # El sujeto al que se le asignan los permisos es un ServiceAccount
+    name: k8s-dashboard     # Nombre del SA definido arriba
+    namespace: keda-app     # Namespace del SA (requerido en RoleBinding)
+roleRef:
+  kind: Role                # Se enlaza a un Role (no a un ClusterRole)
+  name: k8s-dashboard       # Nombre del Role definido arriba
+  apiGroup: rbac.authorization.k8s.io  # API group del Role (siempre este valor para recursos RBAC)
+---
+# ── 4. ClusterRole y ClusterRoleBinding: lectura de nodos ─────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8s-dashboard-nodes
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8s-dashboard-nodes
+subjects:
+  - kind: ServiceAccount
+    name: k8s-dashboard
+    namespace: keda-app
+roleRef:
+  kind: ClusterRole
+  name: k8s-dashboard-nodes
+  apiGroup: rbac.authorization.k8s.io

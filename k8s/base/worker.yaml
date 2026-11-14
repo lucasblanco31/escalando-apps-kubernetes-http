@@ -1,0 +1,42 @@
+# Deployment del worker que consume votos de Redis y los persiste en Postgres.
+# No tiene Service porque no expone ningún puerto: es un consumidor de cola, no un servidor.
+# KEDA lo escala a 0 cuando la lista Redis está vacía (definido en scaledObject.yaml).
+apiVersion: apps/v1   # API de Kubernetes para workloads
+kind: Deployment      # Tipo de recurso: controla Pods con rolling updates
+metadata:
+  name: worker         # Nombre del Deployment; referenciado en el ScaledObject como scaleTargetRef.name
+  namespace: keda-app
+spec:
+  replicas: 0          # KEDA la sube cuando hay votos en la cola de Redis
+  selector:
+    matchLabels:
+      app: worker      # El Deployment gestiona los Pods con esta etiqueta
+  template:
+    metadata:
+      labels:
+        app: worker    # Etiqueta de identificación del Pod
+    spec:
+      containers:
+        - name: worker  # Nombre del contenedor
+          image: aura-worker  # el overlay (local o aws) fija el registro y el tag
+          envFrom:
+            - secretRef:
+                name: worker-secrets  # Inyecta todas las claves del Secret 'worker-secrets' como variables de entorno (REDIS_HOST, DB_DSN)
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+---
+# Secret con las credenciales que necesita el worker para conectarse a Redis y Postgres.
+# Se referencia desde el Deployment con envFrom.secretRef, lo que inyecta cada clave como variable de entorno.
+# ADVERTENCIA: credenciales de demo (postgres/postgres) en texto plano, a propósito y solo para este
+# sandbox sin persistencia. En un entorno real: External Secrets Operator o AWS Secrets Manager.
+apiVersion: v1     # API core de Kubernetes
+kind: Secret       # Tipo de recurso: almacena datos sensibles (Kubernetes los guarda codificados en base64 en etcd)
+metadata:
+  name: worker-secrets  # Nombre del Secret; referenciado en el Deployment como secretRef.name
+  namespace: keda-app
+type: Opaque       # Tipo genérico: el contenido no tiene semántica especial para Kubernetes (a diferencia de kubernetes.io/tls o kubernetes.io/dockerconfigjson)
+stringData:        # Permite escribir los valores en texto plano; Kubernetes los convierte a base64 automáticamente al guardar
+  REDIS_HOST: "redis"  # Hostname del Service Redis dentro del namespace keda-app (DNS corto: resuelve a redis.keda-app.svc.cluster.local)
+  DB_DSN: "host=postgres user=postgres password=postgres"  # Connection string de Postgres; 'postgres' es el Service de k8s-data/postgres.yaml

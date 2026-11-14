@@ -1,0 +1,17 @@
+# LoadBalancerConfiguration: lo que Gateway API no expresa y el ALB necesita.
+# El Gateway la referencia con infrastructure.parametersRef.
+# Esquema: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v3.5/guide/gateway/loadbalancerconfig/
+apiVersion: gateway.k8s.aws/v1
+kind: LoadBalancerConfiguration
+metadata:
+  name: alb-config
+  namespace: keda-app # mismo namespace que el Gateway
+spec:
+  scheme: internet-facing # el default es internal: sin esto el público no llega
+  ipAddressType: ipv4
+  listenerConfigurations:
+    - protocolPort: HTTPS:443
+      defaultCertificate: <TU_CERT_ARN> # ACM, cubre los dos hosts de httproutes.yaml; el TLS de Gateway API (certificateRefs) no aplica al ALB
+  loadBalancerAttributes:
+    - key: idle_timeout.timeout_seconds
+      value: "120" # un cold start con nodo nuevo puede pasar los 60 s del default

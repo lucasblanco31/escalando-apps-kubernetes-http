@@ -1,0 +1,44 @@
+# HTTPScaledObject configura el scale-to-zero y el escalado automático del Deployment 'vote'
+# basado en tráfico HTTP. KEDA HTTP Add-on usa el interceptor proxy para medir los requests
+# y crea/actualiza un HPA en consecuencia.
+apiVersion: http.keda.sh/v1alpha1  # API del KEDA HTTP Add-on
+kind: HTTPScaledObject              # Tipo de recurso: escalado basado en tráfico HTTP
+metadata:
+  name: vote-httpscaledobject  # Nombre del recurso
+  namespace: keda-app
+spec:
+  hosts:
+    - aura.localhost  # Host que el interceptor cuenta y enruta; el overlay aws lo cambia por tu dominio
+  pathPrefixes:
+    - /   # Solo contabiliza requests cuyo path empiece con '/' (en la práctica: todos)
+  scaleTargetRef:
+    name: vote             # Nombre del Deployment a escalar
+    kind: Deployment       # Tipo del recurso a escalar
+    apiVersion: apps/v1    # API del Deployment
+    service: vote          # Service al que el interceptor redirige cuando hay réplicas activas
+    port: 80               # Puerto del Service destino
+  replicas:
+    min: 0   # Permite escalar a CERO: el Pod se termina cuando no hay tráfico por scaledownPeriod segundos
+    max: 10  # Máximo de réplicas: también es el techo de la factura
+  scaledownPeriod: 30  # Segundos sin tráfico antes de bajar; 30 s para que en vivo se alcance a ver
+  scalingMetric:
+    # ── Cómo leer esta política ────────────────────────────────────────────────
+    # KEDA cuenta los requests de los últimos `window` (60s) en intervalos de
+    # `granularity` (1s) y promedia los intervalos: con 1s, el promedio es req/s.
+    # Ojo: con granularity 10s el promedio sería requests cada 10 s (10 veces más).
+    #
+    # Fórmula: réplicas = ceil( tasa_promedio / targetValue )
+    # ceil -> redondea siempre para arriba.
+    # En 60s llegan 300 requests → tasa promedio = 300/60 = 5 req/s → ceil(5/10) = 1 réplica
+    # Ejemplos con targetValue=10:
+    #   5  req/s  →  ceil(5/10)  = 1 réplica
+    #   15 req/s  →  ceil(15/10) = 2 réplicas
+    #   45 req/s  →  ceil(45/10) = 5 réplicas
+    #  105 req/s  →  ceil(105/10)= 11 → clampeado a max=10 réplicas
+    #
+    # Si la tasa cae a 0 durante `scaledownPeriod` (30s) → baja a min=0 réplicas.
+    # ──────────────────────────────────────────────────────────────────────────
+    requestRate:           # Escala basándose en la tasa de requests por segundo (alternativa a targetPendingRequests)
+      granularity: 1s      # Tamaño de cada intervalo. Tiene que ser 1s: el add-on 0.15 promedia pedidos por intervalo, así que con 1s el valor queda en req/s
+      targetValue: 10      # Tasa objetivo de requests/s por réplica; KEDA calcula réplicas = ceil(tasa_actual / 10)
+      window: 60s          # Ventana de tiempo sobre la que se promedian los requests para calcular la tasa

@@ -1,0 +1,46 @@
+# HTTPRoute que manda el tráfico del ALB al interceptor de KEDA (namespace keda),
+# no directo al Service 'vote'. El interceptor cuenta los requests y retiene los
+# que llegan mientras vote está en 0 réplicas, hasta que KEDA lo despierta.
+# La referencia entre namespaces la habilita k8s-keda/referencegrant.yaml.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: vote-route    # Mismo nombre que opcional/httproute-directo.yaml; solo uno aplicado a la vez
+  namespace: keda-app
+spec:
+  parentRefs:
+    - name: alb-gateway
+      sectionName: https
+  hostnames:
+    - aura.example.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: keda-add-ons-http-interceptor-proxy
+          namespace: keda   # Service en otro namespace
+          port: 8080
+---
+# HTTPRoute que expone el panel de la demo en aura-panel.example.com.
+# Va directo al Service: el panel no escala a cero.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: k8s-dashboard-route
+  namespace: keda-app
+spec:
+  parentRefs:
+    - name: alb-gateway
+      sectionName: https
+  hostnames:
+    - aura-panel.example.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: k8s-dashboard
+          port: 80

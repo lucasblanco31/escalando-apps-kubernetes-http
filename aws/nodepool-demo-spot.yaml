@@ -1,0 +1,45 @@
+# NodePool de la demo: Spot, familias t y m, arm64 y amd64, nodos de 2 vCPU.
+# Nodos chicos a propósito: con 10 réplicas de vote no entran en un solo nodo y
+# Auto Mode tiene que agregar otro, que es lo que se muestra en el panel.
+# Usa la NodeClass `default` que trae Auto Mode.
+# kubectl apply -f demo/infra/nodepool-demo-spot.yaml
+# Fuente: https://docs.aws.amazon.com/eks/latest/userguide/create-node-pool.html
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: demo-spot
+spec:
+  weight: 100 # preferido frente al integrado `system`
+  template:
+    metadata:
+      labels:
+        charla/nodepool: demo-spot
+    spec:
+      nodeClassRef:
+        group: eks.amazonaws.com
+        kind: NodeClass
+        name: default
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot"]
+        - key: eks.amazonaws.com/instance-category
+          operator: In
+          values: ["t", "m"]
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["arm64", "amd64"] # las imágenes de la app se construyen multi-arch
+        - key: eks.amazonaws.com/instance-generation
+          operator: Gt
+          values: ["4"]
+        - key: eks.amazonaws.com/instance-cpu
+          operator: In
+          values: ["2"]
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 60s # el nodo extra se va al minuto de quedar vacío; se ve en el panel
+    budgets:
+      - nodes: "50%"
+  limits:
+    cpu: "12" # techo de la factura: como mucho 6 nodos de 2 vCPU
+    memory: 24Gi
